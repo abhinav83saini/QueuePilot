@@ -1,0 +1,14 @@
+
+target/
+.classpath
+.project
+.settings/
+.vscode/
+.idea/
+*.iml
+
+# Local secrets
+.env
+.env.*
+!.env.example
+application-local.properties
