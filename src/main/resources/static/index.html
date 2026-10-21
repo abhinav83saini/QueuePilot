@@ -1,0 +1,747 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QueuePilot Dashboard</title>
+
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #131b2e;
+            --panel2: #19243a;
+            --border: #293650;
+            --text: #eef3ff;
+            --muted: #9ba9c3;
+            --blue: #6c8cff;
+            --green: #35d39a;
+            --red: #ff7185;
+            --yellow: #f4c768;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 22px 5%;
+            border-bottom: 1px solid var(--border);
+            background: #10172a;
+        }
+
+        h1, h2, p { margin-top: 0; }
+
+        h1 { font-size: 25px; margin-bottom: 5px; }
+        h2 { font-size: 18px; margin-bottom: 18px; }
+
+        .muted { color: var(--muted); font-size: 13px; }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #293650;
+        }
+
+        .ok { color: var(--green); }
+        .bad { color: var(--red); }
+        .queued { color: var(--yellow); }
+        .running { color: var(--blue); }
+        .completed { color: var(--green); }
+        .failed, .cancelled { color: var(--red); }
+
+        main {
+            max-width: 1450px;
+            padding: 26px 5%;
+            margin: auto;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(120px, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .card, .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 19px;
+            min-width: 0;
+        }
+
+        .stat-number {
+            font-size: 30px;
+            font-weight: 750;
+            margin-top: 10px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.7fr);
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .panel { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 6px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            background: #0c1425;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 10px;
+            font: inherit;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: Consolas, monospace;
+        }
+
+        .field { margin-bottom: 14px; }
+
+        .two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 7px;
+            padding: 9px 12px;
+            font-weight: 650;
+            cursor: pointer;
+            background: var(--blue);
+            color: #fff;
+        }
+
+        button:hover { filter: brightness(1.12); }
+        button:disabled { opacity: 0.5; cursor: default; }
+
+        button.secondary {
+            background: var(--panel2);
+            border: 1px solid var(--border);
+        }
+
+        button.danger { background: #7f3044; }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: end;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .toolbar .field { flex: 1; min-width: 130px; margin: 0; }
+        .toolbar button { height: 39px; }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .actions { display: flex; gap: 6px; }
+        .actions button { padding: 7px 9px; font-size: 12px; }
+
+        pre {
+            overflow: auto;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-size: 12px;
+            background: #0c1425;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: #d3e0ff;
+        }
+
+        #message {
+            position: fixed;
+            right: 22px;
+            bottom: 22px;
+            max-width: min(420px, 90vw);
+            padding: 14px 18px;
+            background: var(--panel2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            display: none;
+            z-index: 5;
+            white-space: pre-wrap;
+        }
+
+        #message.show { display: block; }
+        .empty { color: var(--muted); padding: 18px 0; }
+
+        @media (max-width: 950px) {
+            .layout { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 500px) {
+            header { align-items: flex-start; flex-direction: column; }
+            .two { grid-template-columns: 1fr; }
+            main { padding: 18px 4%; }
+            .stats { gap: 8px; }
+            .card { padding: 13px; }
+        }
+    </style>
+</head>
+
+<body>
+<header>
+    <div>
+        <h1>QueuePilot <span class="muted">/ Job Control Center</span></h1>
+        <div class="muted">Monitor, submit and manage background jobs.</div>
+    </div>
+    <div id="health" class="badge">Checking backend...</div>
+</header>
+
+<main>
+    <section class="stats">
+        <div class="card">
+            <div class="muted">Total jobs</div>
+            <div id="total" class="stat-number">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Queued</div>
+            <div id="queued" class="stat-number queued">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Running</div>
+            <div id="running" class="stat-number running">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Completed</div>
+            <div id="completed" class="stat-number completed">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Failed</div>
+            <div id="failed" class="stat-number failed">—</div>
+        </div>
+    </section>
+
+    <section class="layout">
+        <div class="panel">
+            <h2>Submit a job</h2>
+
+            <form id="createForm">
+                <div class="two">
+                    <div class="field">
+                        <label for="jobType">Job type</label>
+                        <select id="jobType">
+                            <option value="DEMO">DEMO</option>
+                            <option value="NOOP">NOOP</option>
+                            <option value="EMAIL">EMAIL (simulated)</option>
+                            <option value="SORT">SORT (sort numbers)</option>
+                            <option value="TEXT_ANALYSIS">TEXT_ANALYSIS (count words/lines)</option>
+                            <option value="MATH">MATH (add, subtract, multiply, divide)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="queueId">Queue ID</label>
+                        <input id="queueId" type="number" min="1" value="1" required>
+                    </div>
+                </div>
+
+                <div class="two">
+                    <div class="field">
+                        <label for="priority">Priority</label>
+                        <input id="priority" type="number" min="0" value="5" required>
+                    </div>
+                    <div class="field">
+                        <label for="maxRetries">Maximum retries</label>
+                        <input id="maxRetries" type="number" min="0" value="3" required>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="duration">Estimated duration (ms, optional)</label>
+                    <input id="duration" type="number" min="1" placeholder="e.g. 1500">
+                </div>
+
+                <div class="field">
+                    <label for="scheduledAt">Schedule for later (optional)</label>
+                    <input id="scheduledAt" type="datetime-local">
+                </div>
+
+                <div class="field">
+                    <label for="inputData">Input data (JSON)</label>
+                    <textarea id="inputData">{"demo":true,"message":"Hello from QueuePilot"}</textarea>
+                </div>
+
+                <button type="submit" id="submitButton">Submit job</button>
+            </form>
+        </div>
+
+        <div class="panel">
+            <h2>Scheduler and workers</h2>
+
+            <div class="toolbar">
+                <div class="field">
+                    <label for="policy">Scheduling policy</label>
+                    <select id="policy">
+                        <option value="FCFS">FCFS — First come, first served</option>
+                        <option value="PRIORITY">Priority</option>
+                        <option value="SJF">Shortest job first</option>
+                    </select>
+                </div>
+                <button id="savePolicy" type="button">Apply policy</button>
+            </div>
+
+            <p class="muted">
+                Policy changes affect which eligible queued job is selected next.
+            </p>
+
+            <h2 style="margin-top:24px">Worker health</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Health</th>
+                        <th>Heartbeat</th>
+                    </tr>
+                    </thead>
+                    <tbody id="workers">
+                    <tr><td colspan="4" class="empty">Loading workers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Jobs</h2>
+
+        <div class="toolbar">
+            <div class="field">
+                <label for="statusFilter">Filter status</label>
+                <select id="statusFilter">
+                    <option value="">All statuses</option>
+                    <option>QUEUED</option>
+                    <option>RUNNING</option>
+                    <option>COMPLETED</option>
+                    <option>FAILED</option>
+                    <option>CANCELLED</option>
+                    <option>SCHEDULED</option>
+                    <option>BLOCKED</option>
+                </select>
+            </div>
+            <button id="refresh" type="button" class="secondary">Refresh</button>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Progress</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody id="jobs">
+                <tr><td colspan="7" class="empty">Loading jobs...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel" id="detailsPanel">
+        <h2>Execution details</h2>
+        <div id="details" class="empty">
+            Select a job's Details button to see attempts, events and dependencies.
+        </div>
+    </section>
+</main>
+
+<div id="message" role="status" aria-live="polite"></div>
+
+<script>
+    const $ = id => document.getElementById(id);
+
+    let messageTimer;
+
+    function notify(text) {
+        $("message").textContent = text;
+        $("message").classList.add("show");
+        clearTimeout(messageTimer);
+        messageTimer = setTimeout(() => {
+            $("message").classList.remove("show");
+        }, 4500);
+    }
+
+    async function api(path, options = {}) {
+        const response = await fetch(path, {
+            ...options,
+            headers: {
+                ...(options.body ? { "Content-Type": "application/json" } : {}),
+                ...(options.headers || {})
+            }
+        });
+
+        const text = await response.text();
+
+        if (!response.ok) {
+            throw new Error(text || `Request failed: HTTP ${response.status}`);
+        }
+
+        if (!text) return null;
+
+        try {
+            return JSON.parse(text);
+        } catch {
+            return text;
+        }
+    }
+
+    function safe(value) {
+        return String(value ?? "").replace(/[&<>"']/g, character => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[character]);
+    }
+
+    function date(value) {
+        if (!value) return "—";
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? safe(value)
+            : parsed.toLocaleString();
+    }
+
+    function statusClass(status) {
+        return String(status || "").toLowerCase();
+    }
+
+    async function loadHealth() {
+        try {
+            await api("/api/health");
+            $("health").textContent = "● Backend online";
+            $("health").className = "badge ok";
+        } catch {
+            $("health").textContent = "● Backend unavailable";
+            $("health").className = "badge bad";
+        }
+    }
+
+    async function loadSummary() {
+        const summary = await api("/api/jobs/summary");
+        $("total").textContent = summary.totalJobs ?? 0;
+
+        const byStatus = summary.byStatus || {};
+        $("queued").textContent = byStatus.QUEUED ?? 0;
+        $("running").textContent = byStatus.RUNNING ?? 0;
+        $("completed").textContent = byStatus.COMPLETED ?? 0;
+        $("failed").textContent = byStatus.FAILED ?? 0;
+    }
+
+    async function loadJobs() {
+        // The current JobController exposes GET /api/jobs without a status
+        // query parameter, so apply the selected status filter client-side.
+        const selectedStatus = $("statusFilter").value;
+        const allJobs = await api("/api/jobs");
+        const jobs = Array.isArray(allJobs)
+            ? allJobs.filter(job =>
+                !selectedStatus || String(job.status || "") === selectedStatus)
+            : [];
+        const body = $("jobs");
+
+        if (jobs.length === 0) {
+            body.innerHTML = '<tr><td colspan="7" class="empty">No jobs found.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = jobs.map(job => {
+            const status = String(job.status || "");
+            let buttons = `<button class="secondary" data-action="details" data-id="${safe(job.id)}">Details</button>`;
+
+            if (status === "QUEUED" || status === "SCHEDULED") {
+                buttons += `<button class="danger" data-action="cancel" data-id="${safe(job.id)}">Cancel</button>`;
+            }
+
+            if (status === "FAILED") {
+                buttons += `<button data-action="retry" data-id="${safe(job.id)}">Retry</button>`;
+            }
+
+            return `
+                <tr>
+                    <td>${safe(job.id)}</td>
+                    <td>${safe(job.jobType)}</td>
+                    <td><span class="badge ${statusClass(status)}">${safe(status)}</span></td>
+                    <td>${safe(job.priority)}</td>
+                    <td>${safe(job.progress)}%</td>
+                    <td>${safe(date(job.createdAt))}</td>
+                    <td><div class="actions">${buttons}</div></td>
+                </tr>`;
+        }).join("");
+    }
+
+    async function loadPolicy() {
+        const result = await api("/api/scheduler/policy");
+        $("policy").value = result.activePolicy || "FCFS";
+    }
+
+    async function loadWorkers() {
+        const workers = await api("/api/scheduler/workers");
+        const body = $("workers");
+
+        if (!Array.isArray(workers) || workers.length === 0) {
+            body.innerHTML = '<tr><td colspan="4" class="empty">No workers registered.</td></tr>';
+            return;
+        }
+
+        body.innerHTML = workers.map(worker => `
+            <tr>
+                <td>${safe(worker.worker_id)}</td>
+                <td>${safe(worker.name)}</td>
+                <td><span class="badge ${worker.health_status === "HEALTHY" ? "ok" : "bad"}">${safe(worker.health_status)}</span></td>
+                <td>${safe(date(worker.last_heartbeat))}</td>
+            </tr>
+        `).join("");
+    }
+
+    async function refreshDashboard() {
+        await loadHealth();
+
+        const results = await Promise.allSettled([
+            loadSummary(),
+            loadJobs(),
+            loadPolicy(),
+            loadWorkers()
+        ]);
+
+        const failed = results.filter(result => result.status === "rejected");
+
+        if (failed.length) {
+            notify("Some dashboard data could not load: " +
+                failed.map(result => result.reason.message).join(" | "));
+        }
+    }
+
+    // Sample input for each job type. Selecting a type fills the input box
+    // unless the user has already edited it (so their own JSON is never lost).
+    const SAMPLE_INPUTS = {
+        DEMO: '{"demo":true,"message":"Hello from QueuePilot"}',
+        NOOP: '{"demo":true,"message":"Hello from QueuePilot"}',
+        EMAIL: '{"demo":true,"message":"Hello from QueuePilot"}',
+        SORT: '{"values":[5,2,4]}',
+        TEXT_ANALYSIS: '{"text":"QueuePilot runs jobs"}',
+        MATH: '{"operation":"ADD","a":3,"b":7}'
+    };
+
+    let lastSample = $("inputData").value;
+
+    $("jobType").addEventListener("change", () => {
+        const input = $("inputData");
+        const sample = SAMPLE_INPUTS[$("jobType").value];
+
+        if (sample && input.value === lastSample) {
+            input.value = sample;
+            lastSample = sample;
+        }
+    });
+
+    $("createForm").addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const button = $("submitButton");
+        button.disabled = true;
+
+        try {
+            let inputData = JSON.parse($("inputData").value);
+
+            const payload = {
+                queueId: Number($("queueId").value),
+                jobType: $("jobType").value,
+                inputData,
+                priority: Number($("priority").value),
+                maxRetries: Number($("maxRetries").value)
+            };
+
+            const duration = $("duration").value;
+            if (duration) payload.estimatedDurationMs = Number(duration);
+
+            const scheduled = $("scheduledAt").value;
+            if (scheduled) {
+                payload.scheduledAt = new Date(scheduled).toISOString();
+            }
+
+            const created = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+
+            notify("Job " + created.id + " submitted successfully.");
+            await refreshDashboard();
+        } catch (error) {
+            notify("Job submission failed: " + error.message);
+        } finally {
+            button.disabled = false;
+        }
+    });
+
+    $("savePolicy").addEventListener("click", async () => {
+        try {
+            const policy = $("policy").value;
+
+            await api("/api/scheduler/policy?policy=" + encodeURIComponent(policy), {
+                method: "PUT"
+            });
+
+            notify("Scheduling policy updated to " + policy + ".");
+            await refreshDashboard();
+        } catch (error) {
+            notify("Could not update policy: " + error.message);
+        }
+    });
+
+    $("refresh").addEventListener("click", refreshDashboard);
+    $("statusFilter").addEventListener("change", () => {
+        loadJobs().catch(error => notify(error.message));
+    });
+
+    $("jobs").addEventListener("click", async event => {
+        const button = event.target.closest("button[data-action]");
+        if (!button) return;
+
+        const id = button.dataset.id;
+        const action = button.dataset.action;
+
+        try {
+            if (action === "cancel") {
+                await api(`/api/jobs/${id}/cancel`, { method: "POST" });
+                notify("Job " + id + " cancelled.");
+                await refreshDashboard();
+            }
+
+            if (action === "retry") {
+                await api(`/api/jobs/${id}/retry`, { method: "POST" });
+                notify("Job " + id + " queued for retry.");
+                await refreshDashboard();
+            }
+
+            if (action === "details") {
+                await loadDetails(id);
+            }
+        } catch (error) {
+            notify("Action failed: " + error.message);
+        }
+    });
+
+    async function loadDetails(id) {
+        $("details").textContent = "Loading job details...";
+
+        try {
+            const [job, attempts, events, dependencies] = await Promise.all([
+                api(`/api/jobs/${id}`),
+                api(`/api/jobs/${id}/attempts`),
+                api(`/api/jobs/${id}/events`),
+                api(`/api/jobs/${id}/dependencies`)
+            ]);
+
+            $("details").innerHTML = `
+                <h3>Job #${safe(job.id)} — ${safe(job.jobType)}</h3>
+                <p>
+                    Status: <span class="badge ${statusClass(job.status)}">${safe(job.status)}</span>
+                    &nbsp; Progress: ${safe(job.progress)}%
+                </p>
+                <div class="two">
+                    <div>
+                        <h3>Execution attempts</h3>
+                        <pre>${safe(JSON.stringify(attempts, null, 2))}</pre>
+                    </div>
+                    <div>
+                        <h3>Event history</h3>
+                        <pre>${safe(JSON.stringify(events, null, 2))}</pre>
+                    </div>
+                </div>
+                <h3>Dependencies</h3>
+                <pre>${safe(JSON.stringify(dependencies, null, 2))}</pre>
+                <div class="field">
+                    <label for="dependencyId">Make this job depend on another job ID</label>
+                    <input id="dependencyId" type="number" min="1" placeholder="Prerequisite job ID">
+                </div>
+                <button id="addDependency" type="button">Add dependency</button>
+            `;
+
+            $("addDependency").addEventListener("click", async () => {
+                const dependencyId = $("dependencyId").value;
+
+                if (!dependencyId) {
+                    notify("Enter a prerequisite job ID.");
+                    return;
+                }
+
+                try {
+                    await api(
+                        `/api/jobs/${id}/dependencies?dependsOnJobId=${encodeURIComponent(dependencyId)}`,
+                        { method: "POST" }
+                    );
+
+                    notify("Dependency added to job " + id + ".");
+                    await loadDetails(id);
+                    await refreshDashboard();
+                } catch (error) {
+                    notify("Could not add dependency: " + error.message);
+                }
+            });
+
+            $("detailsPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (error) {
+            $("details").textContent = "Could not load details: " + error.message;
+        }
+    }
+
+    refreshDashboard();
+    setInterval(refreshDashboard, 5000);
+</script>
+</body>
+</html>
