@@ -12,3 +12,4 @@ target/
 .env.*
 !.env.example
 application-local.properties
+startup.log
