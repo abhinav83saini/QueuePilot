@@ -1,5 +1,7 @@
 package com.queuepilot.controller;
 
+import com.queuepilot.service.JobSchedulerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -13,9 +15,29 @@ import java.util.Set;
 public class SchedulerController {
 
     private final JdbcTemplate jdbc;
+    private final JobSchedulerService schedulerService;
 
     public SchedulerController(JdbcTemplate jdbc) {
+        this(jdbc, null);
+    }
+
+    @Autowired
+    public SchedulerController(JdbcTemplate jdbc, @Autowired(required = false) JobSchedulerService schedulerService) {
         this.jdbc = jdbc;
+        this.schedulerService = schedulerService;
+    }
+
+    @GetMapping("/pause")
+    public Map<String, Boolean> isPaused() {
+        return Map.of("paused", schedulerService != null && schedulerService.isPaused());
+    }
+
+    @PutMapping("/pause")
+    public Map<String, Boolean> setPaused(@RequestParam boolean paused) {
+        if (schedulerService != null) {
+            schedulerService.setPaused(paused);
+        }
+        return Map.of("paused", schedulerService != null && schedulerService.isPaused());
     }
 
     @GetMapping("/policy")

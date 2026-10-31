@@ -249,6 +249,44 @@ public class JobController {
         return ResponseEntity.ok(savedJob);
     }
 
+    @DeleteMapping("/completed")
+    public ResponseEntity<?> clearFinishedJobs(
+            @RequestParam(defaultValue = "true") boolean includeCancelled,
+            @RequestParam(defaultValue = "true") boolean includeFailed) {
+
+        List<String> statuses = new ArrayList<>();
+        statuses.add("COMPLETED");
+        if (includeCancelled) statuses.add("CANCELLED");
+        if (includeFailed) statuses.add("FAILED");
+
+        String statusIn = "'" + String.join("', '", statuses) + "'";
+
+        // 1. Delete relations first to satisfy foreign key constraints
+        jdbc.update("DELETE FROM job_dependencies WHERE job_id IN (SELECT job_id FROM jobs WHERE status IN (" + statusIn + ")) OR depends_on_job_id IN (SELECT job_id FROM jobs WHERE status IN (" + statusIn + "))");
+        jdbc.update("DELETE FROM execution_attempts WHERE job_id IN (SELECT job_id FROM jobs WHERE status IN (" + statusIn + "))");
+        jdbc.update("DELETE FROM job_events WHERE job_id IN (SELECT job_id FROM jobs WHERE status IN (" + statusIn + "))");
+
+        // 2. Delete the finished jobs
+        int deleted = jdbc.update("DELETE FROM jobs WHERE status IN (" + statusIn + ")");
+
+        // 3. Clean up stale/inactive workers from previous runs that have no active running attempts
+        try {
+            jdbc.update("""
+                    DELETE FROM workers
+                    WHERE (health_status = 'OFFLINE' OR last_heartbeat < NOW() - INTERVAL '5 minutes')
+                      AND worker_id NOT IN (
+                          SELECT DISTINCT worker_id FROM execution_attempts WHERE status = 'RUNNING' AND worker_id IS NOT NULL
+                      )
+                    """);
+        } catch (Exception ignored) {
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "deletedCount", deleted,
+                "message", "Cleared " + deleted + " finished job(s)."
+        ));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Job> getJob(@PathVariable Long id) {
         return jobRepository.findById(id)

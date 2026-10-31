@@ -39,6 +39,15 @@ public class JobSchedulerService {
 
     private final List<Long> registeredWorkerIds = new CopyOnWriteArrayList<>();
     private final ExecutorService workerThreadPool;
+    private volatile boolean paused = false;
+
+    public boolean isPaused() {
+        return paused;
+    }
+
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+    }
 
     @Autowired
     public JobSchedulerService(
@@ -203,13 +212,14 @@ public class JobSchedulerService {
                 j.job_type,
                 j.input_data::text AS input_data,
                 j.max_retries,
-                j.retry_delay_seconds
+                j.retry_delay_seconds,
+                j.estimated_duration_ms
             """;
 
     @Scheduled(fixedDelayString =
             "${queuepilot.scheduler.poll-delay-ms:1000}")
     public void pollQueue() {
-        if (registeredWorkerIds.isEmpty()) {
+        if (registeredWorkerIds.isEmpty() || paused) {
             return;
         }
 
@@ -250,7 +260,8 @@ public class JobSchedulerService {
                                     rs.getString("job_type"),
                                     rs.getString("input_data"),
                                     rs.getInt("max_retries"),
-                                    rs.getInt("retry_delay_seconds")
+                                    rs.getInt("retry_delay_seconds"),
+                                    rs.getObject("estimated_duration_ms") != null ? rs.getLong("estimated_duration_ms") : null
                             ),
                             worker.workerId(),
                             priorityAgingIntervalSeconds
@@ -347,8 +358,37 @@ public class JobSchedulerService {
                         "Could not create an execution attempt");
             }
 
-            // Report progress during execution (SRS F9, U4)
-            updateJobProgress(job.id(), 35);
+            // Report initial progress during execution (SRS F9, U4)
+            updateJobProgress(job.id(), 5);
+
+            long duration = job.estimatedDurationMs() != null && job.estimatedDurationMs() > 0
+                    ? Math.min(job.estimatedDurationMs(), 120000L)
+                    : 10000L;
+
+            long startTime = System.currentTimeMillis();
+            long endTime = startTime + duration;
+
+            while (System.currentTimeMillis() < endTime) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                int progress = (int) Math.min(95, Math.max(5, (elapsed * 100) / duration));
+                updateJobProgress(job.id(), progress);
+
+                try {
+                    Thread.sleep(1000L);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+
+                // Check if attempt is still active (e.g. worker was not failed/lease expired)
+                Boolean stillActive = jdbc.queryForObject(
+                        "SELECT EXISTS(SELECT 1 FROM execution_attempts WHERE attempt_id = ? AND status = 'RUNNING')",
+                        Boolean.class, attemptId);
+                if (!Boolean.TRUE.equals(stillActive)) {
+                    log.warn("Attempt {} for job {} is no longer RUNNING (lease expired or worker failed). Exiting worker thread.", attemptId, job.id());
+                    return;
+                }
+            }
 
             // Execute built-in task on the worker thread
             JobExecutionResult result = executors.execute(
@@ -356,7 +396,7 @@ public class JobSchedulerService {
                     JsonSupport.parse(job.inputData()));
             String output = result.toJson();
 
-            updateJobProgress(job.id(), 85);
+            updateJobProgress(job.id(), 98);
 
             final Long savedAttemptId = attemptId;
             final String savedOutput = output;
@@ -374,8 +414,8 @@ public class JobSchedulerService {
                         """, savedOutput, job.id());
 
                 if (jobUpdated != 1) {
-                    throw new IllegalStateException(
-                            "Job state changed before completion");
+                    log.warn("Job {} state changed before completion (recovered or cancelled). Skipping completion.", job.id());
+                    return;
                 }
 
                 int attemptUpdated = jdbc.update("""
@@ -389,8 +429,8 @@ public class JobSchedulerService {
                         """, savedOutput, savedAttemptId);
 
                 if (attemptUpdated != 1) {
-                    throw new IllegalStateException(
-                            "Execution attempt was not RUNNING");
+                    log.warn("Execution attempt {} was not RUNNING. Skipping completion.", savedAttemptId);
+                    return;
                 }
 
                 addEvent(
@@ -882,7 +922,12 @@ public class JobSchedulerService {
             String jobType,
             String inputData,
             int maxRetries,
-            int retryDelaySeconds) {
+            int retryDelaySeconds,
+            Long estimatedDurationMs) {
+
+        public ClaimedJob(Long id, String jobType, String inputData, int maxRetries, int retryDelaySeconds) {
+            this(id, jobType, inputData, maxRetries, retryDelaySeconds, null);
+        }
     }
 
     public record ExpiredAttempt(

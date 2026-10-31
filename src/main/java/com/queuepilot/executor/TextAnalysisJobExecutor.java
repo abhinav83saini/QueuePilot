@@ -42,7 +42,7 @@ import java.util.Set;
  * characters is rejected.</p>
  */
 @Component
-public class TextAnalysisJobExecutor implements JobExecutor {
+public class TextAnalysisJobExecutor extends AbstractJobExecutor {
 
     static final int MAX_TEXT_LENGTH = 1_000_000;
     static final int TOP_WORDS = 5;
@@ -65,8 +65,7 @@ public class TextAnalysisJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
-        validateInput(input);
+    protected JobExecutionResult doExecute(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
         String text = JobInputs.requireString(data, "text");
 

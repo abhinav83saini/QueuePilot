@@ -30,7 +30,7 @@ import java.util.Set;
  * {@code 5.0} appears as {@code 5}.</p>
  */
 @Component
-public class SortingJobExecutor implements JobExecutor {
+public class SortingJobExecutor extends AbstractJobExecutor {
 
     static final int MAX_VALUES = 10_000;
 
@@ -69,8 +69,7 @@ public class SortingJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
-        validateInput(input);
+    protected JobExecutionResult doExecute(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
         List<?> list = (List<?>) data.get("values");
 

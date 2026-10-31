@@ -39,7 +39,7 @@ import java.util.TreeSet;
  * </ul>
  */
 @Component
-public class MathJobExecutor implements JobExecutor {
+public class MathJobExecutor extends AbstractJobExecutor {
 
     static final int MAX_EXPONENT = 100;
 
@@ -84,8 +84,7 @@ public class MathJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
-        validateInput(input);
+    protected JobExecutionResult doExecute(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
 
         String operation = JobInputs.requireString(data, "operation")

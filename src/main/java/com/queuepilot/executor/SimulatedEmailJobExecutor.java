@@ -16,7 +16,7 @@ import java.util.Set;
  * <p><b>Job type:</b> {@code EMAIL}</p>
  */
 @Component
-public class SimulatedEmailJobExecutor implements JobExecutor {
+public class SimulatedEmailJobExecutor extends AbstractJobExecutor {
 
     @Override
     public Set<String> supportedJobTypes() {
@@ -29,8 +29,7 @@ public class SimulatedEmailJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
-        validateInput(input);
+    protected JobExecutionResult doExecute(JsonNode input) {
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("simulated", true);
         output.put("message", "Demo email completed; no email was sent.");

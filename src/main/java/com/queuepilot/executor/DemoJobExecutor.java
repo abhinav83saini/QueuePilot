@@ -14,7 +14,7 @@ import java.util.Set;
  * <p><b>Job types:</b> {@code DEMO}, {@code NOOP}</p>
  */
 @Component
-public class DemoJobExecutor implements JobExecutor {
+public class DemoJobExecutor extends AbstractJobExecutor {
 
     @Override
     public Set<String> supportedJobTypes() {
@@ -27,8 +27,10 @@ public class DemoJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
-        validateInput(input);
+    protected JobExecutionResult doExecute(JsonNode input) {
+        if (input != null && (input.path("fail").asBoolean(false) || input.path("simulateFailure").asBoolean(false))) {
+            throw new JobExecutionException("Simulated runtime failure (transient network timeout)");
+        }
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("success", true);
         output.put("message", "Demo job completed.");

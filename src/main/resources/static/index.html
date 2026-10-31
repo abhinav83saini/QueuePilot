@@ -423,8 +423,8 @@
                 </div>
 
                 <div class="field">
-                    <label for="duration">Estimated duration (ms, optional)</label>
-                    <input id="duration" type="number" min="1" placeholder="e.g. 1500">
+                    <label for="duration">Simulated duration (ms, optional)</label>
+                    <input id="duration" type="number" min="100" value="15000" placeholder="e.g. 15000">
                 </div>
 
                 <div class="two">
@@ -465,6 +465,9 @@
                     </select>
                 </div>
                 <button id="savePolicy" type="button">Apply policy</button>
+                <button id="togglePauseBtn" type="button" class="secondary" title="Pause worker claiming to build up a queue">⏸️ Pause Scheduler</button>
+                <button id="seedDemoWorkloadBtn" type="button" class="secondary" style="border-color:var(--yellow);color:var(--yellow);" title="Queue 4 jobs with different priorities">⚡ Seed Demo Batch</button>
+                <button id="clearFinishedSchedulerBtn" type="button" class="secondary" style="border-color:#ff7185;color:#ff8597;" title="Clear all finished jobs (completed, failed, cancelled)">🧹 Clear Finished Jobs</button>
             </div>
 
             <p class="muted">
@@ -502,6 +505,138 @@
         </div>
     </section>
 
+    <!-- QueuePilot Official Evaluation Demo Scenario (From Slide Specification) -->
+    <section class="panel" id="officialDemoPanel" style="border: 2px solid var(--blue); background: #0f192e;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div>
+                <h2 style="color:var(--text);margin-bottom:4px;">🎓 QueuePilot Official Demo Scenario (7 Steps)</h2>
+                <div class="muted">Follow the official 7-step presentation flow for course evaluation and professor demonstration.</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <button id="step1Submit10Btn" type="button" style="background:var(--blue);font-size:13px;padding:8px 14px;">1. 📥 Submit 10 Jobs</button>
+                <button id="step5SimulateFailureBtn" type="button" class="danger" style="font-size:13px;padding:8px 14px;">5. 💥 Simulate Worker Failure</button>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px;margin-top:16px;">
+            <div class="card" style="background:#131d35;border-color:#2a3a5a;">
+                <div style="font-weight:700;color:var(--blue);margin-bottom:6px;">Step 1: Submit 10 Jobs</div>
+                <div class="muted" style="font-size:12px;margin-bottom:8px;">
+                    Submits 10 tasks (Sorting, Text Analysis, Math, Email) with realistic 10–30s durations and varied priorities (includes J1: P2/10s, J2: P5/30s, J3: P3/5s, J4: P1/2s from the slide).
+                </div>
+                <button id="step1Submit10CardBtn" type="button" style="width:100%;font-size:12px;">📥 Submit 10 Jobs (Workload)</button>
+            </div>
+
+            <div class="card" style="background:#131d35;border-color:#2a3a5a;">
+                <div style="font-weight:700;color:var(--yellow);margin-bottom:6px;">Step 2: Select Policy</div>
+                <div class="muted" style="font-size:12px;margin-bottom:8px;">
+                    Choose between <strong>FCFS</strong> (order of arrival), <strong>Priority with Aging</strong> (prevents starvation), or <strong>SJF</strong> (shortest job first).
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <select id="demoScenarioPolicy" style="font-size:12px;padding:6px;">
+                        <option value="PRIORITY_AGING">Priority with Aging</option>
+                        <option value="SJF">Shortest Job First (SJF)</option>
+                        <option value="FCFS">FCFS (First-Come First-Served)</option>
+                    </select>
+                    <button id="applyDemoPolicyBtn" type="button" class="secondary" style="font-size:12px;white-space:nowrap;">Apply</button>
+                </div>
+            </div>
+
+            <div class="card" style="background:#131d35;border-color:#2a3a5a;">
+                <div style="font-weight:700;color:var(--green);margin-bottom:6px;">Steps 3 & 4: Execute & Monitor</div>
+                <div class="muted" style="font-size:12px;margin-bottom:8px;">
+                    Watch 4 workers claim 4 jobs simultaneously for 10–30s with live progress bars, while the remaining 6 jobs wait in QUEUED!
+                </div>
+                <button id="resumeExecutionBtn" type="button" class="btn-outline-green" style="width:100%;font-size:12px;">▶️ Resume Execution</button>
+            </div>
+
+            <div class="card" style="background:#131d35;border-color:#2a3a5a;">
+                <div style="font-weight:700;color:var(--red);margin-bottom:6px;">Steps 5 & 6: Failure & Recovery</div>
+                <div class="muted" style="font-size:12px;margin-bottom:8px;">
+                    Stop a worker while executing a 20s–30s job. The system detects the expired lease and reassigns the job to another worker.
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button id="demoSimulateFailBtn" type="button" class="danger" style="flex:1;font-size:11px;">Stop Active Worker</button>
+                    <button id="demoRecoverBtn" type="button" class="secondary" style="flex:1;font-size:11px;">Recover Workers</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Demonstration Scenarios (One-Click Showcase) -->
+    <section class="panel" id="scenariosPanel">
+        <h2>🎯 One-Click Evaluation Scenarios</h2>
+        <p class="muted">
+            Select a scenario below to automatically generate tailored workloads demonstrating core OS scheduling, fault tolerance, and workflow features in real-time.
+        </p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px;margin-top:14px;">
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--yellow);">🌟 Priority & Aging Queue</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Queues 6 jobs with priorities 2 to 20. Watch workers claim Critical (20) & Urgent (15) jobs first while low priority jobs age.
+                </div>
+                <button id="scenarioPriorityBtn" type="button" style="width:100%;font-size:12px;">Run Priority Demo</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--blue);">⚡ Shortest Job First (SJF)</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Queues quick jobs (1.5s, 3s) alongside long jobs (12s, 16s). Shows SJF executing short jobs first to minimize wait time.
+                </div>
+                <button id="scenarioSjfBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run SJF Demo</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--orange);">🔗 DAG Pipeline (Blocked)</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Queues Job A, Job B (depends on A), and Job C (depends on B). Shows BLOCKED status and automated cascading unlocks.
+                </div>
+                <button id="scenarioDagBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run DAG Pipeline</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--red);">🔄 Auto-Retry & Backoff</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Submits a job that triggers simulated runtime failure. Demonstrates retry delays, backoff, and attempt audit history.
+                </div>
+                <button id="scenarioRetryBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run Retry Demo</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:#ff8597;">⏱️ Deadlines & Overdue SLA</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Submits jobs with overdue and near-due deadlines to show real-time ⚠️ OVERDUE and ⏱️ DUE SOON visual indicators.
+                </div>
+                <button id="scenarioDeadlineBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run SLA Deadlines</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--purple);">🕒 Scheduled for Later</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Schedules a job 15 seconds in the future. Shows SCHEDULED status which automatically activates when time arrives.
+                </div>
+                <button id="scenarioScheduledBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run Scheduled Demo</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:#ff7185;">🚫 Cascade Cancellation</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Queues a parent job and dependent child, then cancels parent. Shows automatic cascade cancellation of dependent jobs.
+                </div>
+                <button id="scenarioCancelBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run Cascade Cancel</button>
+            </div>
+
+            <div class="card" style="background:var(--panel2);padding:14px;">
+                <div style="font-weight:700;margin-bottom:6px;color:var(--green);">🛡️ Worker Lease Expiry</div>
+                <div class="muted" style="font-size:12px;margin-bottom:10px;">
+                    Simulates worker crash and lease expiration on an active job, demonstrating scheduler recovery without job loss.
+                </div>
+                <button id="scenarioFaultBtn" type="button" class="secondary" style="width:100%;font-size:12px;">Run Fault Recovery</button>
+            </div>
+        </div>
+    </section>
+
     <section class="panel">
         <h2>Jobs</h2>
 
@@ -526,6 +661,7 @@
                 </select>
             </div>
             <button id="refresh" type="button" class="secondary">Refresh</button>
+            <button id="clearCompletedBtn" type="button" class="secondary" style="border-color:#ff7185;color:#ff8597;" title="Clear finished (completed, cancelled, failed) jobs">🧹 Clear Finished</button>
         </div>
 
         <div class="table-wrap">
@@ -836,6 +972,27 @@
         }).join("");
     }
 
+    let isSchedulerPaused = false;
+
+    async function loadPauseStatus() {
+        try {
+            const res = await api("/api/scheduler/pause");
+            isSchedulerPaused = Boolean(res && res.paused);
+            const btn = $("togglePauseBtn");
+            if (btn) {
+                if (isSchedulerPaused) {
+                    btn.textContent = "▶️ Resume Scheduler";
+                    btn.className = "btn-outline-green";
+                } else {
+                    btn.textContent = "⏸️ Pause Scheduler";
+                    btn.className = "secondary";
+                }
+            }
+        } catch {
+            // ignore
+        }
+    }
+
     async function loadPolicy() {
         const result = await api("/api/scheduler/policy");
         const policy = result.activePolicy || "FCFS";
@@ -890,6 +1047,7 @@
             loadQueues(),
             loadJobs(),
             loadPolicy(),
+            loadPauseStatus(),
             loadWorkers()
         ]);
 
@@ -1025,6 +1183,80 @@
             await refreshDashboard();
         } catch (error) {
             notify("Could not update policy: " + error.message);
+        }
+    });
+
+    $("togglePauseBtn").addEventListener("click", async () => {
+        try {
+            const targetState = !isSchedulerPaused;
+            const res = await api(`/api/scheduler/pause?paused=${targetState}`, { method: "PUT" });
+            isSchedulerPaused = Boolean(res && res.paused);
+            notify(isSchedulerPaused ? "Scheduler PAUSED. Jobs will accumulate in QUEUED state without being claimed." : "Scheduler RESUMED. Workers are processing jobs.");
+            await loadPauseStatus();
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to toggle pause: " + err.message);
+        }
+    });
+
+    $("seedDemoWorkloadBtn").addEventListener("click", async () => {
+        const btn = $("seedDemoWorkloadBtn");
+        btn.disabled = true;
+        btn.textContent = "Seeding batch...";
+
+        try {
+            // 1. Pause scheduler first so all jobs accumulate in QUEUED
+            await api("/api/scheduler/pause?paused=true", { method: "PUT" });
+            await loadPauseStatus();
+
+            // 2. Submit 4 demo jobs with distinct priorities and durations
+            const queueId = Number($("queueId").value) || 1;
+
+            const demoJobs = [
+                {
+                    queueId,
+                    jobType: "DEMO",
+                    priority: 2,
+                    estimatedDurationMs: 5000,
+                    inputData: { task: "Data Export", note: "Low priority background task (Priority 2)" }
+                },
+                {
+                    queueId,
+                    jobType: "MATH",
+                    priority: 10,
+                    estimatedDurationMs: 4000,
+                    inputData: { operation: "MULTIPLY", a: 24, b: 50, note: "Urgent calculation (Priority 10)" }
+                },
+                {
+                    queueId,
+                    jobType: "SORT",
+                    priority: 5,
+                    estimatedDurationMs: 6000,
+                    inputData: { values: [99, 12, 45, 3, 78, 1], note: "Medium priority sorting (Priority 5)" }
+                },
+                {
+                    queueId,
+                    jobType: "TEXT_ANALYSIS",
+                    priority: 8,
+                    estimatedDurationMs: 3500,
+                    inputData: { text: "QueuePilot schedules background tasks with priority aging and worker fault tolerance.", note: "High priority text analysis (Priority 8)" }
+                }
+            ];
+
+            for (const payload of demoJobs) {
+                await api("/api/jobs", {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            notify("⚡ Queued 4 demo jobs (Priorities: 2, 10, 5, 8). Scheduler is PAUSED. Select policy, then click Resume Scheduler!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to seed batch: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "⚡ Seed Demo Batch";
         }
     });
 
@@ -1264,8 +1496,390 @@
         }
     });
 
+    // Clear completed / finished jobs
+    async function clearFinishedJobsHandler() {
+        try {
+            const res = await api("/api/jobs/completed?includeFailed=true", { method: "DELETE" });
+            notify(res.message || "Finished jobs cleared.");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to clear jobs: " + err.message);
+        }
+    }
+
+    if ($("clearCompletedBtn")) $("clearCompletedBtn").addEventListener("click", clearFinishedJobsHandler);
+    if ($("clearFinishedSchedulerBtn")) $("clearFinishedSchedulerBtn").addEventListener("click", clearFinishedJobsHandler);
+
+    // ==========================================
+    // 🎓 Official 7-Step Demo Scenario
+    // ==========================================
+
+    async function submit10OfficialJobs() {
+        try {
+            // Pause scheduler first so all 10 accumulate in QUEUED
+            await api("/api/scheduler/pause?paused=true", { method: "PUT" });
+            await loadPauseStatus();
+
+            const queueId = Number($("queueId").value) || 1;
+
+            const jobs = [
+                // 1-4: The exact 4 jobs from the Evaluation slide (Image 3)
+                { queueId, jobType: "SORT", priority: 2, estimatedDurationMs: 10000, inputData: { task: "J1 (Evaluation Slide Example)", values: [42, 17, 8, 99, 23, 5], note: "Priority 2 | 10 sec" } },
+                { queueId, jobType: "TEXT_ANALYSIS", priority: 5, estimatedDurationMs: 30000, inputData: { task: "J2 (Evaluation Slide Example)", text: "QueuePilot distributed background task processing platform with multi-threaded scheduling and priority aging.", note: "Priority 5 | 30 sec" } },
+                { queueId, jobType: "MATH", priority: 3, estimatedDurationMs: 5000, inputData: { task: "J3 (Evaluation Slide Example)", operation: "MULTIPLY", a: 12, b: 15, note: "Priority 3 | 5 sec" } },
+                { queueId, jobType: "DEMO", priority: 1, estimatedDurationMs: 2000, inputData: { task: "J4 (Evaluation Slide Example)", note: "Priority 1 | 2 sec" } },
+
+                // 5-10: Additional realistic 10-30s tasks from specification
+                { queueId, jobType: "MATH", priority: 8, estimatedDurationMs: 12000, inputData: { task: "J5: Heavy Exponential Power", operation: "POWER", a: 2, b: 16, note: "Priority 8 | 12 sec" } },
+                { queueId, jobType: "SORT", priority: 6, estimatedDurationMs: 18000, inputData: { task: "J6: Financial Transaction Sorting", values: [100, 4, 88, 32, 9, 71, 15], note: "Priority 6 | 18 sec" } },
+                { queueId, jobType: "TEXT_ANALYSIS", priority: 4, estimatedDurationMs: 22000, inputData: { task: "J7: Server Log File Analysis", text: "Analyzing access logs, thread pools, and memory metrics across distributed worker nodes.", note: "Priority 4 | 22 sec" } },
+                { queueId, jobType: "MATH", priority: 9, estimatedDurationMs: 14000, inputData: { task: "J8: Arithmetic Precision Sum", operation: "ADD", a: 9999, b: 8888, note: "Priority 9 | 14 sec" } },
+                { queueId, jobType: "SORT", priority: 7, estimatedDurationMs: 25000, inputData: { task: "J9: Inventory Catalogue Indexing", values: [55, 33, 11, 77, 99, 22, 66], note: "Priority 7 | 25 sec" } },
+                { queueId, jobType: "EMAIL", priority: 10, estimatedDurationMs: 15000, inputData: { task: "J10: Executive Summary Dispatch", recipient: "dean@university.edu", note: "Priority 10 | 15 sec" } }
+            ];
+
+            for (const j of jobs) {
+                await api("/api/jobs", { method: "POST", body: JSON.stringify(j) });
+            }
+
+            notify("Step 1 Complete: Submitted 10 jobs (durations 10s–30s, priorities 1–10). Scheduler is PAUSED. Select policy in Step 2, then click Resume to execute concurrently across 4 workers!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to submit 10 jobs: " + err.message);
+        }
+    }
+
+    $("step1Submit10Btn").addEventListener("click", submit10OfficialJobs);
+    $("step1Submit10CardBtn").addEventListener("click", submit10OfficialJobs);
+
+    $("applyDemoPolicyBtn").addEventListener("click", async () => {
+        try {
+            const p = $("demoScenarioPolicy").value;
+            await api("/api/scheduler/policy?policy=" + encodeURIComponent(p), { method: "PUT" });
+            $("policy").value = p;
+            notify("Step 2: Applied scheduling policy: " + p);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to set policy: " + err.message);
+        }
+    });
+
+    $("resumeExecutionBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=false", { method: "PUT" });
+            await loadPauseStatus();
+            notify("Steps 3 & 4: Scheduler RESUMED! 4 workers are executing 4 jobs concurrently. The other 6 jobs wait in QUEUED state. Watch progress bars stream!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failed to resume scheduler: " + err.message);
+        }
+    });
+
+    async function handleSimulateWorkerFailure() {
+        try {
+            const res = await api("/api/benchmark/simulate-worker-failure", { method: "POST" });
+            notify("Step 5 & 6: " + res.message);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failure simulation failed: " + err.message);
+        }
+    }
+
+    $("step5SimulateFailureBtn").addEventListener("click", handleSimulateWorkerFailure);
+    $("demoSimulateFailBtn").addEventListener("click", handleSimulateWorkerFailure);
+
+    $("demoRecoverBtn").addEventListener("click", async () => {
+        try {
+            const res = await api("/api/benchmark/recover-workers", { method: "POST" });
+            notify("Step 6: " + res.message);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Recovery failed: " + err.message);
+        }
+    });
+
+    // ==========================================
+    // 🎯 Interactive Demo Scenarios
+    // ==========================================
+
+    // Scenario 1: Priority & Aging
+    $("scenarioPriorityBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=true", { method: "PUT" });
+            await api("/api/scheduler/policy?policy=PRIORITY_AGING", { method: "PUT" });
+            $("policy").value = "PRIORITY_AGING";
+            await loadPauseStatus();
+
+            const queueId = Number($("queueId").value) || 1;
+            const jobs = [
+                { queueId, jobType: "DEMO", priority: 2, estimatedDurationMs: 6000, inputData: { task: "Data Sync", priority: 2 } },
+                { queueId, jobType: "MATH", priority: 15, estimatedDurationMs: 5000, inputData: { operation: "MULTIPLY", a: 50, b: 20, priority: 15 } },
+                { queueId, jobType: "SORT", priority: 3, estimatedDurationMs: 6000, inputData: { values: [9, 3, 7, 1], priority: 3 } },
+                { queueId, jobType: "TEXT_ANALYSIS", priority: 12, estimatedDurationMs: 5000, inputData: { text: "QueuePilot priority scheduling", priority: 12 } },
+                { queueId, jobType: "EMAIL", priority: 7, estimatedDurationMs: 5000, inputData: { recipient: "user@example.com", priority: 7 } },
+                { queueId, jobType: "MATH", priority: 20, estimatedDurationMs: 4000, inputData: { operation: "ADD", a: 100, b: 200, priority: 20 } }
+            ];
+
+            for (const j of jobs) {
+                await api("/api/jobs", { method: "POST", body: JSON.stringify(j) });
+            }
+
+            notify("🌟 Priority Demo: Queued 6 jobs (Priorities: 2, 15, 3, 12, 7, 20). Scheduler is PAUSED. Notice they are all QUEUED. Click '▶️ Resume Scheduler' to watch workers claim Critical (20), Urgent (15), and High (12) jobs first!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 2: Shortest Job First (SJF)
+    $("scenarioSjfBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=true", { method: "PUT" });
+            await api("/api/scheduler/policy?policy=SJF", { method: "PUT" });
+            $("policy").value = "SJF";
+            await loadPauseStatus();
+
+            const queueId = Number($("queueId").value) || 1;
+            const jobs = [
+                { queueId, jobType: "DEMO", priority: 5, estimatedDurationMs: 16000, inputData: { task: "Massive Video Processing", duration: "16s (Long)" } },
+                { queueId, jobType: "MATH", priority: 5, estimatedDurationMs: 2000, inputData: { operation: "ADD", a: 5, b: 5, duration: "2s (Short)" } },
+                { queueId, jobType: "TEXT_ANALYSIS", priority: 5, estimatedDurationMs: 12000, inputData: { text: "Large archive text search", duration: "12s (Long)" } },
+                { queueId, jobType: "SORT", priority: 5, estimatedDurationMs: 3000, inputData: { values: [4, 1, 9], duration: "3s (Short)" } },
+                { queueId, jobType: "EMAIL", priority: 5, estimatedDurationMs: 1500, inputData: { recipient: "a@b.com", duration: "1.5s (Short)" } }
+            ];
+
+            for (const j of jobs) {
+                await api("/api/jobs", { method: "POST", body: JSON.stringify(j) });
+            }
+
+            notify("⚡ SJF Demo: Queued 5 jobs. Click '▶️ Resume Scheduler' to watch SJF prioritize quick jobs (1.5s, 2s, 3s) first to minimize average waiting time!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 3: DAG Pipeline (Blocked)
+    $("scenarioDagBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=false", { method: "PUT" });
+            await loadPauseStatus();
+
+            const queueId = Number($("queueId").value) || 1;
+
+            const jobA = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "DEMO",
+                    priority: 5,
+                    estimatedDurationMs: 6000,
+                    inputData: { step: "Step 1: Data Ingestion (Prerequisite)" }
+                })
+            });
+
+            const jobB = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "SORT",
+                    priority: 5,
+                    estimatedDurationMs: 4000,
+                    dependsOnJobIds: [jobA.id],
+                    inputData: { step: "Step 2: Sort Records (Blocked on Step 1)", values: [10, 4, 8, 2] }
+                })
+            });
+
+            const jobC = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "EMAIL",
+                    priority: 5,
+                    estimatedDurationMs: 3000,
+                    dependsOnJobIds: [jobB.id],
+                    inputData: { step: "Step 3: Dispatch Report (Blocked on Step 2)", recipient: "boss@corp.com" }
+                })
+            });
+
+            notify(`🔗 DAG Demo: Submits Job #${jobA.id} (6s), Job #${jobB.id} (depends on #${jobA.id}), and Job #${jobC.id} (depends on #${jobB.id}). Notice Jobs B & C start in BLOCKED status until prerequisites complete!`);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 4: Auto-Retry & Backoff
+    $("scenarioRetryBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=false", { method: "PUT" });
+            await loadPauseStatus();
+
+            const queueId = Number($("queueId").value) || 1;
+            const job = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "DEMO",
+                    priority: 8,
+                    maxRetries: 3,
+                    retryDelaySeconds: 4,
+                    estimatedDurationMs: 2500,
+                    inputData: { fail: true, task: "Remote Payment Webhook", note: "Simulated transient failure" }
+                })
+            });
+
+            notify(`🔄 Retry Demo: Submitted Job #${job.id} with simulated failure. Watch it fail, enter retry delay backoff, record attempts in Details, and retry up to 3 times!`);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 5: Deadlines & Overdue SLA
+    $("scenarioDeadlineBtn").addEventListener("click", async () => {
+        try {
+            const queueId = Number($("queueId").value) || 1;
+            const now = Date.now();
+
+            const pastDeadline = new Date(now - 45 * 60 * 1000).toISOString(); // 45m ago
+            const nearDeadline = new Date(now + 4 * 60 * 1000).toISOString();  // in 4m
+            const futureDeadline = new Date(now + 3 * 60 * 60 * 1000).toISOString(); // in 3h
+
+            await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "MATH",
+                    priority: 5,
+                    deadlineAt: pastDeadline,
+                    estimatedDurationMs: 5000,
+                    inputData: { operation: "MULTIPLY", a: 9, b: 9, note: "Target deadline missed" }
+                })
+            });
+
+            await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "SORT",
+                    priority: 5,
+                    deadlineAt: nearDeadline,
+                    estimatedDurationMs: 4000,
+                    inputData: { values: [5, 2, 8], note: "Due within 4 minutes" }
+                })
+            });
+
+            await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "EMAIL",
+                    priority: 5,
+                    deadlineAt: futureDeadline,
+                    estimatedDurationMs: 3000,
+                    inputData: { recipient: "sla@test.com", note: "Comfortable SLA deadline" }
+                })
+            });
+
+            notify("⏱️ Deadlines Demo: Queued jobs with past, near-due, and future deadlines. Notice the red ⚠️ OVERDUE and yellow ⏱️ DUE SOON visual badges!");
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 6: Scheduled for Later
+    $("scenarioScheduledBtn").addEventListener("click", async () => {
+        try {
+            const queueId = Number($("queueId").value) || 1;
+            const scheduledAt = new Date(Date.now() + 15 * 1000).toISOString(); // 15 seconds in future
+
+            const job = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "TEXT_ANALYSIS",
+                    priority: 5,
+                    scheduledAt,
+                    estimatedDurationMs: 4000,
+                    inputData: { text: "Scheduled automated nightly digest.", note: "Activates in 15 seconds" }
+                })
+            });
+
+            notify(`🕒 Scheduled Demo: Job #${job.id} scheduled for 15 seconds from now. It starts in SCHEDULED status (purple badge) and activates when time arrives!`);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 7: Cascade Cancellation
+    $("scenarioCancelBtn").addEventListener("click", async () => {
+        try {
+            const queueId = Number($("queueId").value) || 1;
+
+            const parent = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "DEMO",
+                    priority: 5,
+                    estimatedDurationMs: 15000,
+                    inputData: { task: "Parent Workflow Task (To Be Cancelled)" }
+                })
+            });
+
+            const child = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "MATH",
+                    priority: 5,
+                    dependsOnJobIds: [parent.id],
+                    inputData: { operation: "ADD", a: 1, b: 1, note: "Child job that will be cascade cancelled" }
+                })
+            });
+
+            // Immediately cancel the parent
+            await api(`/api/jobs/${parent.id}/cancel`, { method: "POST" });
+
+            notify(`🚫 Cascade Cancel Demo: Parent Job #${parent.id} was cancelled. Dependent Child Job #${child.id} was automatically CASCADE CANCELLED!`);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
+    // Scenario 8: Worker Lease Expiry & Self-Healing
+    $("scenarioFaultBtn").addEventListener("click", async () => {
+        try {
+            await api("/api/scheduler/pause?paused=false", { method: "PUT" });
+            const queueId = Number($("queueId").value) || 1;
+
+            const job = await api("/api/jobs", {
+                method: "POST",
+                body: JSON.stringify({
+                    queueId,
+                    jobType: "DEMO",
+                    priority: 10,
+                    estimatedDurationMs: 25000,
+                    inputData: { task: "Long-running batch job undergoing worker crash" }
+                })
+            });
+
+            setTimeout(async () => {
+                const res = await api("/api/benchmark/simulate-worker-failure", { method: "POST" });
+                notify("🛡️ Fault Recovery Demo: Active worker marked UNHEALTHY and lease expired on Job #" + job.id + ". Scheduler recovery sweep reclaims the job without data loss!");
+                await refreshDashboard();
+            }, 800);
+        } catch (err) {
+            notify("Scenario failed: " + err.message);
+        }
+    });
+
     refreshDashboard();
-    setInterval(refreshDashboard, 5000);
+    setInterval(refreshDashboard, 1000);
 </script>
 </body>
 </html>
