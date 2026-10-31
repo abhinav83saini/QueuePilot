@@ -352,6 +352,14 @@
                     </tbody>
                 </table>
             </div>
+
+            <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                <button id="simulateFailureBtn" type="button" class="danger">Simulate Worker Failure</button>
+                <button id="recoverWorkersBtn" type="button" class="secondary">Recover Workers</button>
+            </div>
+            <p class="muted" style="margin-top:8px;">
+                Simulating a failure marks an active worker UNHEALTHY and expires its active assignment lease, demonstrating automatic fault recovery (SRS U5).
+            </p>
         </div>
     </section>
 
@@ -399,6 +407,29 @@
         <h2>Execution details</h2>
         <div id="details" class="empty">
             Select a job's Details button to see attempts, events and dependencies.
+        </div>
+    </section>
+
+    <section class="panel" id="benchmarkPanel">
+        <h2>Policy Benchmarks & Scheduling Metrics</h2>
+        <p class="muted">
+            Run a repeatable benchmark on an identical synthetic workload to compare FCFS, Priority with Aging, and SJF across key metrics (SRS F15, U2, 4.1).
+        </p>
+
+        <div class="toolbar">
+            <div class="field" style="max-width:140px;">
+                <label for="benchmarkJobs">Job Count</label>
+                <input id="benchmarkJobs" type="number" min="5" max="100" value="15">
+            </div>
+            <div class="field" style="max-width:140px;">
+                <label for="benchmarkWorkers">Worker Threads</label>
+                <input id="benchmarkWorkers" type="number" min="1" max="8" value="2">
+            </div>
+            <button id="runBenchmarkBtn" type="button">Run Policy Comparison</button>
+        </div>
+
+        <div id="benchmarkResults" class="empty">
+            Click "Run Policy Comparison" to evaluate scheduling policies side-by-side.
         </div>
     </section>
 </main>
@@ -751,6 +782,88 @@
             $("details").textContent = "Could not load details: " + error.message;
         }
     }
+
+    function renderBenchmarkResults(data) {
+        if (!data || !data.policyResults) return;
+
+        const formatPolicyName = p => {
+            if (p === "PRIORITY_AGING") return "Priority with Aging";
+            if (p === "SJF") return "Shortest Job First (SJF)";
+            return p;
+        };
+
+        const rows = data.policyResults.map(res => `
+            <tr>
+                <td><strong>${safe(formatPolicyName(res.policy))}</strong></td>
+                <td>${res.averageWaitingTimeMs} ms</td>
+                <td>${res.averageTurnaroundTimeMs} ms</td>
+                <td>${res.throughputJobsPerSecond} jobs/s</td>
+                <td>${res.workerUtilizationPercent}%</td>
+                <td>${res.totalDurationMs} ms</td>
+            </tr>
+        `).join("");
+
+        $("benchmarkResults").innerHTML = `
+            <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Policy</th>
+                        <th>Avg Waiting Time</th>
+                        <th>Avg Turnaround Time</th>
+                        <th>Throughput</th>
+                        <th>Worker Utilization</th>
+                        <th>Total Duration</th>
+                    </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <p class="muted" style="margin-top:10px;">
+                Benchmark tested ${safe(data.jobCount)} jobs across ${safe(data.workerCount)} worker threads (Priority aging interval: ${safe(data.priorityAgingIntervalSeconds)}s).
+            </p>
+        `;
+    }
+
+    $("runBenchmarkBtn").addEventListener("click", async () => {
+        const btn = $("runBenchmarkBtn");
+        btn.disabled = true;
+        btn.textContent = "Running benchmark...";
+        try {
+            const jobCount = $("benchmarkJobs").value || 15;
+            const workerCount = $("benchmarkWorkers").value || 2;
+            const data = await api(`/api/benchmark/compare?jobCount=${jobCount}&workerCount=${workerCount}&agingIntervalSeconds=10.0`, {
+                method: "POST"
+            });
+            renderBenchmarkResults(data);
+            notify("Policy benchmark comparison completed.");
+        } catch (err) {
+            notify("Benchmark failed: " + err.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Run Policy Comparison";
+        }
+    });
+
+    $("simulateFailureBtn").addEventListener("click", async () => {
+        try {
+            const res = await api("/api/benchmark/simulate-worker-failure", { method: "POST" });
+            notify(res.message);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Failure simulation failed: " + err.message);
+        }
+    });
+
+    $("recoverWorkersBtn").addEventListener("click", async () => {
+        try {
+            const res = await api("/api/benchmark/recover-workers", { method: "POST" });
+            notify(res.message);
+            await refreshDashboard();
+        } catch (err) {
+            notify("Recovery failed: " + err.message);
+        }
+    });
 
     refreshDashboard();
     setInterval(refreshDashboard, 5000);
