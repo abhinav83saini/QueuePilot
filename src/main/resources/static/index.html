@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,6 +17,8 @@
             --green: #35d39a;
             --red: #ff7185;
             --yellow: #f4c768;
+            --purple: #a78bfa;
+            --orange: #f97316;
         }
 
         * { box-sizing: border-box; }
@@ -39,16 +40,17 @@
             background: #10172a;
         }
 
-        h1, h2, p { margin-top: 0; }
+        h1, h2, h3, p { margin-top: 0; }
 
         h1 { font-size: 25px; margin-bottom: 5px; }
         h2 { font-size: 18px; margin-bottom: 18px; }
+        h3 { font-size: 15px; margin-bottom: 10px; }
 
         .muted { color: var(--muted); font-size: 13px; }
 
         .badge {
             display: inline-block;
-            padding: 6px 10px;
+            padding: 5px 10px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 700;
@@ -61,6 +63,26 @@
         .running { color: var(--blue); }
         .completed { color: var(--green); }
         .failed, .cancelled { color: var(--red); }
+        .scheduled { color: var(--purple); }
+        .blocked { color: var(--orange); }
+
+        .badge.overdue {
+            background: #3f1721;
+            color: #ff8597;
+            border: 1px solid #7f3044;
+            animation: pulse-red 2s infinite;
+        }
+
+        .badge.due-soon {
+            background: #3a2e12;
+            color: #f4c768;
+            border: 1px solid #786227;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.75; }
+        }
 
         main {
             max-width: 1450px;
@@ -68,11 +90,25 @@
             margin: auto;
         }
 
+        .section-title {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
         .stats {
             display: grid;
             grid-template-columns: repeat(5, minmax(120px, 1fr));
             gap: 14px;
-            margin-bottom: 22px;
+            margin-bottom: 16px;
+        }
+
+        .metrics-stats {
+            grid-template-columns: repeat(4, minmax(120px, 1fr));
+            margin-bottom: 24px;
         }
 
         .card, .panel {
@@ -84,14 +120,14 @@
         }
 
         .stat-number {
-            font-size: 30px;
+            font-size: 28px;
             font-weight: 750;
             margin-top: 10px;
         }
 
         .layout {
             display: grid;
-            grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.7fr);
+            grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1.6fr);
             gap: 18px;
             margin-bottom: 18px;
         }
@@ -117,7 +153,7 @@
         }
 
         textarea {
-            min-height: 100px;
+            min-height: 95px;
             resize: vertical;
             font-family: Consolas, monospace;
         }
@@ -138,6 +174,7 @@
             cursor: pointer;
             background: var(--blue);
             color: #fff;
+            transition: filter 0.15s ease;
         }
 
         button:hover { filter: brightness(1.12); }
@@ -146,9 +183,28 @@
         button.secondary {
             background: var(--panel2);
             border: 1px solid var(--border);
+            color: var(--text);
         }
 
         button.danger { background: #7f3044; }
+
+        .btn-outline-green {
+            background: transparent;
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        .link-btn {
+            background: none;
+            border: none;
+            color: var(--blue);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0;
+            text-decoration: underline;
+        }
+
+        .link-btn:hover { color: #8fa7ff; }
 
         .toolbar {
             display: flex;
@@ -182,7 +238,28 @@
         }
 
         .actions { display: flex; gap: 6px; }
-        .actions button { padding: 7px 9px; font-size: 12px; }
+        .actions button { padding: 6px 9px; font-size: 12px; }
+
+        .progress-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            min-width: 80px;
+        }
+
+        .progress-bar-track {
+            flex: 1;
+            background: #202b42;
+            height: 6px;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            background: var(--blue);
+            height: 100%;
+            transition: width 0.3s ease;
+        }
 
         pre {
             overflow: auto;
@@ -206,23 +283,47 @@
             border: 1px solid var(--border);
             border-radius: 10px;
             display: none;
-            z-index: 5;
+            z-index: 1100;
             white-space: pre-wrap;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
 
         #message.show { display: block; }
         .empty { color: var(--muted); padding: 18px 0; }
 
+        /* Modal styling for queue creation */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(4, 7, 15, 0.78);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+        }
+
         @media (max-width: 950px) {
             .layout { grid-template-columns: 1fr; }
             .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .metrics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         @media (max-width: 500px) {
             header { align-items: flex-start; flex-direction: column; }
             .two { grid-template-columns: 1fr; }
             main { padding: 18px 4%; }
-            .stats { gap: 8px; }
+            .stats, .metrics-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
             .card { padding: 13px; }
         }
     </style>
@@ -232,12 +333,13 @@
 <header>
     <div>
         <h1>QueuePilot <span class="muted">/ Job Control Center</span></h1>
-        <div class="muted">Monitor, submit and manage background jobs.</div>
+        <div class="muted">Monitor, submit and manage background jobs & distributed workers.</div>
     </div>
     <div id="health" class="badge">Checking backend...</div>
 </header>
 
 <main>
+    <div class="section-title">Queue Status Summary</div>
     <section class="stats">
         <div class="card">
             <div class="muted">Total jobs</div>
@@ -261,6 +363,26 @@
         </div>
     </section>
 
+    <div class="section-title">Execution & Scheduling Performance (SRS F15, 4.1)</div>
+    <section class="stats metrics-stats">
+        <div class="card">
+            <div class="muted">Avg Waiting Time</div>
+            <div id="metricWaitTime" class="stat-number">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Avg Turnaround Time</div>
+            <div id="metricTurnaroundTime" class="stat-number">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Throughput</div>
+            <div id="metricThroughput" class="stat-number running">—</div>
+        </div>
+        <div class="card">
+            <div class="muted">Worker Utilization</div>
+            <div id="metricUtilization" class="stat-number ok">—</div>
+        </div>
+    </section>
+
     <section class="layout">
         <div class="panel">
             <h2>Submit a job</h2>
@@ -279,8 +401,13 @@
                         </select>
                     </div>
                     <div class="field">
-                        <label for="queueId">Queue ID</label>
-                        <input id="queueId" type="number" min="1" value="1" required>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <label for="queueId" style="margin-bottom:0">Queue</label>
+                            <button id="openNewQueueBtn" type="button" class="link-btn">+ New Queue</button>
+                        </div>
+                        <select id="queueId" required>
+                            <option value="1">#1 — default</option>
+                        </select>
                     </div>
                 </div>
 
@@ -300,9 +427,20 @@
                     <input id="duration" type="number" min="1" placeholder="e.g. 1500">
                 </div>
 
+                <div class="two">
+                    <div class="field">
+                        <label for="scheduledAt">Schedule for later (optional)</label>
+                        <input id="scheduledAt" type="datetime-local">
+                    </div>
+                    <div class="field">
+                        <label for="deadlineAt">Target deadline (SRS F13)</label>
+                        <input id="deadlineAt" type="datetime-local">
+                    </div>
+                </div>
+
                 <div class="field">
-                    <label for="scheduledAt">Schedule for later (optional)</label>
-                    <input id="scheduledAt" type="datetime-local">
+                    <label for="dependsOnJobIds">Depends on Job IDs (comma-separated, optional)</label>
+                    <input id="dependsOnJobIds" type="text" placeholder="e.g. 1, 2">
                 </div>
 
                 <div class="field">
@@ -330,10 +468,10 @@
             </div>
 
             <p class="muted">
-                Policy changes affect which eligible queued job is selected next.
+                Policy changes dynamically affect which eligible queued job is selected next by worker threads.
             </p>
 
-            <h2 style="margin-top:24px">Worker health</h2>
+            <h2 style="margin-top:24px">Worker health & capacity</h2>
             <div class="table-wrap">
                 <table>
                     <thead>
@@ -345,10 +483,11 @@
                         <th>Active Jobs</th>
                         <th>Capabilities</th>
                         <th>Heartbeat</th>
+                        <th>Actions</th>
                     </tr>
                     </thead>
                     <tbody id="workers">
-                    <tr><td colspan="7" class="empty">Loading workers...</td></tr>
+                    <tr><td colspan="8" class="empty">Loading workers...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -358,7 +497,7 @@
                 <button id="recoverWorkersBtn" type="button" class="secondary">Recover Workers</button>
             </div>
             <p class="muted" style="margin-top:8px;">
-                Simulating a failure marks an active worker UNHEALTHY and expires its active assignment lease, demonstrating automatic fault recovery (SRS U5).
+                Simulating a failure marks an active worker UNHEALTHY and expires its assignment lease, demonstrating fault recovery and graceful reassignment (SRS U2, U5).
             </p>
         </div>
     </section>
@@ -380,6 +519,12 @@
                     <option>BLOCKED</option>
                 </select>
             </div>
+            <div class="field">
+                <label for="queueFilter">Filter queue</label>
+                <select id="queueFilter">
+                    <option value="">All queues</option>
+                </select>
+            </div>
             <button id="refresh" type="button" class="secondary">Refresh</button>
         </div>
 
@@ -389,15 +534,17 @@
                 <tr>
                     <th>ID</th>
                     <th>Type</th>
+                    <th>Queue</th>
                     <th>Status</th>
                     <th>Priority</th>
                     <th>Progress</th>
+                    <th>Deadline (F13)</th>
                     <th>Created</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody id="jobs">
-                <tr><td colspan="7" class="empty">Loading jobs...</td></tr>
+                <tr><td colspan="9" class="empty">Loading jobs...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -406,12 +553,12 @@
     <section class="panel" id="detailsPanel">
         <h2>Execution details</h2>
         <div id="details" class="empty">
-            Select a job's Details button to see attempts, events and dependencies.
+            Select a job's Details button to see attempts, events, dependencies, and outputs.
         </div>
     </section>
 
     <section class="panel" id="benchmarkPanel">
-        <h2>Policy Benchmarks & Scheduling Metrics</h2>
+        <h2>Policy Benchmarks & Scheduling Simulation</h2>
         <p class="muted">
             Run a repeatable benchmark on an identical synthetic workload to compare FCFS, Priority with Aging, and SJF across key metrics (SRS F15, U2, 4.1).
         </p>
@@ -433,6 +580,28 @@
         </div>
     </section>
 </main>
+
+<!-- Create New Queue Modal -->
+<div id="newQueueModal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+        <h3>Create New Queue</h3>
+        <p class="muted">Define a new isolated queue for jobs.</p>
+        <form id="newQueueForm">
+            <div class="field">
+                <label for="newQueueName">Queue Name *</label>
+                <input id="newQueueName" required placeholder="e.g. high-priority, analytics">
+            </div>
+            <div class="field">
+                <label for="newQueueDesc">Description (optional)</label>
+                <input id="newQueueDesc" placeholder="e.g. Dedicated queue for urgent jobs">
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+                <button type="button" class="secondary" id="cancelQueueBtn">Cancel</button>
+                <button type="submit" id="saveQueueBtn">Create Queue</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div id="message" role="status" aria-live="polite"></div>
 
@@ -495,6 +664,52 @@
         return String(status || "").toLowerCase();
     }
 
+    /**
+     * Renders deadline status with visual alerts for approaching or overdue deadlines (SRS F13).
+     */
+    function renderDeadlineBadge(job) {
+        if (!job.deadlineAt) return "";
+
+        const deadline = new Date(job.deadlineAt);
+        const now = new Date();
+        const status = String(job.status || "");
+
+        if (status === "COMPLETED") {
+            return `<span class="badge ok" style="font-size:10px;padding:2px 6px;">COMPLETED</span>`;
+        }
+        if (status === "CANCELLED") {
+            return `<span class="muted" style="font-size:11px;">(cancelled)</span>`;
+        }
+
+        const diffMs = deadline.getTime() - now.getTime();
+
+        if (diffMs < 0) {
+            const overdueMin = Math.round(Math.abs(diffMs) / 60000);
+            const overdueStr = overdueMin < 60 ? `${overdueMin}m overdue` : `${Math.round(overdueMin / 60)}h overdue`;
+            return `<span class="badge overdue" title="${overdueStr}">⚠️ OVERDUE</span>`;
+        }
+
+        if (diffMs <= 10 * 60 * 1000) {
+            const dueMin = Math.max(1, Math.round(diffMs / 60000));
+            return `<span class="badge due-soon" title="Due in ${dueMin} minutes">⏱️ DUE IN ${dueMin}m</span>`;
+        }
+
+        return "";
+    }
+
+    function renderDeadlineCell(job) {
+        if (!job.deadlineAt) return '<span class="muted">—</span>';
+
+        const badgeHtml = renderDeadlineBadge(job);
+        const dateStr = date(job.deadlineAt);
+
+        if (!badgeHtml) {
+            return `<span>${safe(dateStr)}</span>`;
+        }
+
+        return `<div>${badgeHtml}<div class="muted" style="font-size:11px;margin-top:3px;">${safe(dateStr)}</div></div>`;
+    }
+
     async function loadHealth() {
         try {
             await api("/api/health");
@@ -507,29 +722,81 @@
     }
 
     async function loadSummary() {
-        const summary = await api("/api/jobs/summary");
-        $("total").textContent = summary.totalJobs ?? 0;
+        try {
+            const [summary, metrics] = await Promise.all([
+                api("/api/jobs/summary"),
+                api("/api/benchmark/metrics").catch(() => null)
+            ]);
 
-        const byStatus = summary.byStatus || {};
-        $("queued").textContent = byStatus.QUEUED ?? 0;
-        $("running").textContent = byStatus.RUNNING ?? 0;
-        $("completed").textContent = byStatus.COMPLETED ?? 0;
-        $("failed").textContent = byStatus.FAILED ?? 0;
+            if (summary) {
+                $("total").textContent = summary.totalJobs ?? 0;
+                const byStatus = summary.byStatus || {};
+                $("queued").textContent = byStatus.QUEUED ?? 0;
+                $("running").textContent = byStatus.RUNNING ?? 0;
+                $("completed").textContent = byStatus.COMPLETED ?? 0;
+                $("failed").textContent = byStatus.FAILED ?? 0;
+            }
+
+            if (metrics) {
+                $("metricWaitTime").textContent = metrics.averageWaitingTimeMs != null
+                    ? `${Math.round(metrics.averageWaitingTimeMs)} ms` : "0 ms";
+                $("metricTurnaroundTime").textContent = metrics.averageTurnaroundTimeMs != null
+                    ? `${Math.round(metrics.averageTurnaroundTimeMs)} ms` : "0 ms";
+                $("metricThroughput").textContent = metrics.throughputJobsPerMinute != null
+                    ? `${Number(metrics.throughputJobsPerMinute).toFixed(1)} /min` : "0 /min";
+                $("metricUtilization").textContent = metrics.workerUtilizationPercent != null
+                    ? `${Number(metrics.workerUtilizationPercent).toFixed(1)}%` : "0%";
+            }
+        } catch (err) {
+            console.error("Failed to load summary or metrics:", err);
+        }
+    }
+
+    async function loadQueues() {
+        try {
+            const queues = await api("/api/queues");
+            if (!Array.isArray(queues) || queues.length === 0) return;
+
+            const queueSelect = $("queueId");
+            const filterSelect = $("queueFilter");
+            const prevQueueVal = queueSelect.value;
+            const prevFilterVal = filterSelect ? filterSelect.value : "";
+
+            queueSelect.innerHTML = queues.map(q =>
+                `<option value="${q.id}">#${q.id} — ${safe(q.name)}${q.description ? ` (${safe(q.description)})` : ''}</option>`
+            ).join("");
+
+            if (prevQueueVal && queues.some(q => String(q.id) === String(prevQueueVal))) {
+                queueSelect.value = prevQueueVal;
+            }
+
+            if (filterSelect) {
+                filterSelect.innerHTML = '<option value="">All queues</option>' +
+                    queues.map(q => `<option value="${q.id}">#${q.id} — ${safe(q.name)}</option>`).join("");
+                if (prevFilterVal && queues.some(q => String(q.id) === String(prevFilterVal))) {
+                    filterSelect.value = prevFilterVal;
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load queues:", err);
+        }
     }
 
     async function loadJobs() {
-        // The current JobController exposes GET /api/jobs without a status
-        // query parameter, so apply the selected status filter client-side.
         const selectedStatus = $("statusFilter").value;
-        const allJobs = await api("/api/jobs");
-        const jobs = Array.isArray(allJobs)
-            ? allJobs.filter(job =>
-                !selectedStatus || String(job.status || "") === selectedStatus)
-            : [];
+        const selectedQueue = $("queueFilter") ? $("queueFilter").value : "";
+
+        const params = new URLSearchParams();
+        if (selectedStatus) params.set("status", selectedStatus);
+        if (selectedQueue) params.set("queueId", selectedQueue);
+
+        const qs = params.toString() ? `?${params.toString()}` : "";
+        const allJobs = await api(`/api/jobs${qs}`);
+        const jobs = Array.isArray(allJobs) ? allJobs : [];
         const body = $("jobs");
 
         if (jobs.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" class="empty">No jobs found.</td></tr>';
+            body.innerHTML = '<tr><td colspan="9" class="empty">No jobs found.</td></tr>';
             return;
         }
 
@@ -545,13 +812,24 @@
                 buttons += `<button data-action="retry" data-id="${safe(job.id)}">Retry</button>`;
             }
 
+            const progressPct = Math.min(100, Math.max(0, job.progress || 0));
+
             return `
                 <tr>
                     <td>${safe(job.id)}</td>
                     <td>${safe(job.jobType)}</td>
+                    <td>#${safe(job.queueId)}</td>
                     <td><span class="badge ${statusClass(status)}">${safe(status)}</span></td>
                     <td>${safe(job.priority)}</td>
-                    <td>${safe(job.progress)}%</td>
+                    <td>
+                        <div class="progress-bar-wrap">
+                            <div class="progress-bar-track">
+                                <div class="progress-bar-fill" style="width:${progressPct}%;"></div>
+                            </div>
+                            <span style="font-size:12px;">${progressPct}%</span>
+                        </div>
+                    </td>
+                    <td>${renderDeadlineCell(job)}</td>
                     <td>${safe(date(job.createdAt))}</td>
                     <td><div class="actions">${buttons}</div></td>
                 </tr>`;
@@ -569,21 +847,39 @@
         const body = $("workers");
 
         if (!Array.isArray(workers) || workers.length === 0) {
-            body.innerHTML = '<tr><td colspan="7" class="empty">No workers registered.</td></tr>';
+            body.innerHTML = '<tr><td colspan="8" class="empty">No workers registered.</td></tr>';
             return;
         }
 
-        body.innerHTML = workers.map(worker => `
-            <tr>
-                <td>${safe(worker.worker_id)}</td>
-                <td>${safe(worker.name)}</td>
-                <td><span class="badge ${worker.health_status === "HEALTHY" ? "ok" : "bad"}">${safe(worker.health_status)}</span></td>
-                <td>${safe(worker.capacity)}</td>
-                <td>${safe(worker.active_jobs ?? 0)}</td>
-                <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;" title="${safe(worker.capabilities)}">${safe(worker.capabilities || "—")}</td>
-                <td>${safe(date(worker.last_heartbeat))}</td>
-            </tr>
-        `).join("");
+        body.innerHTML = workers.map(worker => {
+            const isHealthy = worker.health_status === "HEALTHY";
+            const healthToggle = isHealthy
+                ? `<button class="secondary" style="font-size:11px;padding:4px 8px;" data-worker-action="toggle-health" data-worker-id="${worker.worker_id}" data-target-health="UNHEALTHY">Mark Unhealthy</button>`
+                : `<button class="secondary btn-outline-green" style="font-size:11px;padding:4px 8px;" data-worker-action="toggle-health" data-worker-id="${worker.worker_id}" data-target-health="HEALTHY">Mark Healthy</button>`;
+
+            const capacityBtn = `<button class="secondary" style="font-size:11px;padding:4px 8px;" data-worker-action="edit-capacity" data-worker-id="${worker.worker_id}" data-current-capacity="${worker.capacity}">Capacity</button>`;
+
+            const addCapBtn = `<button class="secondary" style="font-size:11px;padding:4px 8px;" data-worker-action="add-capability" data-worker-id="${worker.worker_id}">+ Cap</button>`;
+
+            return `
+                <tr>
+                    <td>${safe(worker.worker_id)}</td>
+                    <td>${safe(worker.name)}</td>
+                    <td><span class="badge ${isHealthy ? "ok" : "bad"}">${safe(worker.health_status)}</span></td>
+                    <td>${safe(worker.capacity)}</td>
+                    <td>${safe(worker.active_jobs ?? 0)}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${safe(worker.capabilities)}">${safe(worker.capabilities || "—")}</td>
+                    <td>${safe(date(worker.last_heartbeat))}</td>
+                    <td>
+                        <div class="actions">
+                            ${healthToggle}
+                            ${capacityBtn}
+                            ${addCapBtn}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join("");
     }
 
     async function refreshDashboard() {
@@ -591,6 +887,7 @@
 
         const results = await Promise.allSettled([
             loadSummary(),
+            loadQueues(),
             loadJobs(),
             loadPolicy(),
             loadWorkers()
@@ -609,10 +906,10 @@
     const SAMPLE_INPUTS = {
         DEMO: '{"demo":true,"message":"Hello from QueuePilot"}',
         NOOP: '{"demo":true,"message":"Hello from QueuePilot"}',
-        EMAIL: '{"demo":true,"message":"Hello from QueuePilot"}',
-        SORT: '{"values":[5,2,4]}',
-        TEXT_ANALYSIS: '{"text":"QueuePilot runs jobs"}',
-        MATH: '{"operation":"ADD","a":3,"b":7}'
+        EMAIL: '{"recipient":"user@example.com","subject":"Welcome","body":"Hello!"}',
+        SORT: '{"values":[15,3,9,1,42,8]}',
+        TEXT_ANALYSIS: '{"text":"QueuePilot efficiently schedules background jobs with priority aging and worker fault tolerance."}',
+        MATH: '{"operation":"MULTIPLY","a":6,"b":7}'
     };
 
     let lastSample = $("inputData").value;
@@ -652,17 +949,67 @@
                 payload.scheduledAt = new Date(scheduled).toISOString();
             }
 
+            const deadline = $("deadlineAt").value;
+            if (deadline) {
+                payload.deadlineAt = new Date(deadline).toISOString();
+            }
+
+            const depsVal = $("dependsOnJobIds").value.trim();
+            if (depsVal) {
+                payload.dependsOnJobIds = depsVal.split(",")
+                    .map(s => Number(s.trim()))
+                    .filter(n => !isNaN(n) && n > 0);
+            }
+
             const created = await api("/api/jobs", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
 
-            notify("Job " + created.id + " submitted successfully.");
+            notify("Job #" + created.id + " submitted successfully (" + created.status + ").");
+            $("dependsOnJobIds").value = "";
             await refreshDashboard();
         } catch (error) {
             notify("Job submission failed: " + error.message);
         } finally {
             button.disabled = false;
+        }
+    });
+
+    // Queue Creation Modal Handling
+    $("openNewQueueBtn").addEventListener("click", () => {
+        $("newQueueName").value = "";
+        $("newQueueDesc").value = "";
+        $("newQueueModal").style.display = "flex";
+        $("newQueueName").focus();
+    });
+
+    $("cancelQueueBtn").addEventListener("click", () => {
+        $("newQueueModal").style.display = "none";
+    });
+
+    $("newQueueForm").addEventListener("submit", async event => {
+        event.preventDefault();
+        const saveBtn = $("saveQueueBtn");
+        saveBtn.disabled = true;
+
+        try {
+            const name = $("newQueueName").value.trim();
+            const description = $("newQueueDesc").value.trim();
+
+            const created = await api("/api/queues", {
+                method: "POST",
+                body: JSON.stringify({ name, description })
+            });
+
+            notify("Queue '" + created.name + "' created with ID #" + created.id + ".");
+            $("newQueueModal").style.display = "none";
+            await loadQueues();
+            $("queueId").value = created.id;
+        } catch (err) {
+            notify("Failed to create queue: " + err.message);
+        } finally {
+            saveBtn.disabled = false;
         }
     });
 
@@ -683,6 +1030,9 @@
 
     $("refresh").addEventListener("click", refreshDashboard);
     $("statusFilter").addEventListener("change", () => {
+        loadJobs().catch(error => notify(error.message));
+    });
+    $("queueFilter").addEventListener("change", () => {
         loadJobs().catch(error => notify(error.message));
     });
 
@@ -714,6 +1064,52 @@
         }
     });
 
+    // Worker table interactive actions: health toggle, capacity edit, add capability
+    $("workers").addEventListener("click", async event => {
+        const btn = event.target.closest("button[data-worker-action]");
+        if (!btn) return;
+
+        const action = btn.dataset.workerAction;
+        const workerId = btn.dataset.workerId;
+
+        try {
+            if (action === "toggle-health") {
+                const targetHealth = btn.dataset.targetHealth;
+                await api(`/api/scheduler/workers/${workerId}/health?status=${encodeURIComponent(targetHealth)}`, {
+                    method: "PUT"
+                });
+                notify(`Worker #${workerId} status set to ${targetHealth}.`);
+                await refreshDashboard();
+            } else if (action === "edit-capacity") {
+                const currentCap = btn.dataset.currentCapacity;
+                const newCapStr = prompt(`Set concurrent execution capacity for worker #${workerId}:`, currentCap);
+                if (newCapStr !== null) {
+                    const newCap = parseInt(newCapStr, 10);
+                    if (isNaN(newCap) || newCap <= 0) {
+                        notify("Capacity must be a positive integer.");
+                        return;
+                    }
+                    await api(`/api/scheduler/workers/${workerId}/capacity?capacity=${newCap}`, {
+                        method: "PUT"
+                    });
+                    notify(`Worker #${workerId} capacity updated to ${newCap}.`);
+                    await refreshDashboard();
+                }
+            } else if (action === "add-capability") {
+                const cap = prompt(`Enter new capability tag for worker #${workerId} (e.g. GPU, HIGH_MEMORY, SORT):`);
+                if (cap && cap.trim()) {
+                    await api(`/api/scheduler/workers/${workerId}/capabilities?capability=${encodeURIComponent(cap.trim().toUpperCase())}`, {
+                        method: "POST"
+                    });
+                    notify(`Added capability '${cap.trim().toUpperCase()}' to worker #${workerId}.`);
+                    await refreshDashboard();
+                }
+            }
+        } catch (err) {
+            notify("Worker action failed: " + err.message);
+        }
+    });
+
     async function loadDetails(id) {
         $("details").textContent = "Loading job details...";
 
@@ -725,6 +1121,8 @@
                 api(`/api/jobs/${id}/dependencies`)
             ]);
 
+            const deadlineBadge = renderDeadlineBadge(job);
+
             $("details").innerHTML = `
                 <h3>Job #${safe(job.id)} — ${safe(job.jobType)}</h3>
                 <p>
@@ -732,6 +1130,7 @@
                     &nbsp; Progress: ${safe(job.progress)}%
                     &nbsp; Queue: #${safe(job.queueId)}
                     &nbsp; Priority: ${safe(job.priority)}
+                    ${job.deadlineAt ? `&nbsp; Deadline: <strong>${date(job.deadlineAt)}</strong> ${deadlineBadge}` : ''}
                 </p>
                 ${job.startedAt ? `<p class="muted">Started: ${date(job.startedAt)} &nbsp;|&nbsp; Completed: ${date(job.completedAt)}</p>` : ''}
                 ${job.errorMessage ? `<div style="color:var(--red);margin-bottom:12px;background:#2d151c;border:1px solid #7f3044;padding:8px 12px;border-radius:6px;"><strong>Error:</strong> ${safe(job.errorMessage)}</div>` : ''}
