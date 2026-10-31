@@ -64,6 +64,23 @@ public class JobExecutorRegistry {
     }
 
     /**
+     * Validates that {@code jobType} is supported and that {@code input} satisfies
+     * the executor's input schema and bounds.
+     *
+     * @throws UnsupportedJobTypeException if no executor handles the type
+     * @throws InvalidJobInputException if the input is malformed or invalid
+     */
+    public void validate(String jobType, JsonNode input) {
+        JobExecutor executor = find(jobType).orElseThrow(() ->
+                new UnsupportedJobTypeException(
+                        "Unsupported job type: " + jobType
+                                + ". Supported types: "
+                                + String.join(", ", supportedJobTypes())));
+
+        executor.validateInput(input);
+    }
+
+    /**
      * Runs the executor registered for {@code jobType}.
      *
      * @throws UnsupportedJobTypeException if no executor handles the type

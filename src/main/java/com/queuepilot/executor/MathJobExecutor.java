@@ -57,7 +57,7 @@ public class MathJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
+    public void validateInput(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
 
         String operation = JobInputs.requireString(data, "operation")
@@ -70,6 +70,27 @@ public class MathJobExecutor implements JobExecutor {
                             + "'. Supported operations: "
                             + String.join(", ", OPERATIONS));
         }
+
+        operand(data, "a");
+        BigDecimal b = operand(data, "b");
+
+        if ("DIVIDE".equals(operation) && b.signum() == 0) {
+            throw new InvalidJobInputException("Division by zero is not allowed");
+        }
+
+        if ("POWER".equals(operation)) {
+            exponent(b);
+        }
+    }
+
+    @Override
+    public JobExecutionResult execute(JsonNode input) {
+        validateInput(input);
+        Map<String, Object> data = JobInputs.requireObject(input);
+
+        String operation = JobInputs.requireString(data, "operation")
+                .trim()
+                .toUpperCase(Locale.ROOT);
 
         BigDecimal a = operand(data, "a");
         BigDecimal b = operand(data, "b");

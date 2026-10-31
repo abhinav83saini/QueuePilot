@@ -22,7 +22,13 @@ public class DemoJobExecutor implements JobExecutor {
     }
 
     @Override
+    public void validateInput(JsonNode input) {
+        // Accepts any valid JSON input for demonstration purposes
+    }
+
+    @Override
     public JobExecutionResult execute(JsonNode input) {
+        validateInput(input);
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("success", true);
         output.put("message", "Demo job completed.");

@@ -42,17 +42,43 @@ public class Job {
     @Column(name = "retry_delay_seconds", nullable = false)
     private Integer retryDelaySeconds = 5;
 
+    @Column(name = "estimated_duration_ms")
+    private Long estimatedDurationMs;
+
+    @Column(name = "scheduled_at")
+    private OffsetDateTime scheduledAt;
+
+    @Column(name = "deadline_at")
+    private OffsetDateTime deadlineAt;
+
     @Column(name = "available_at", nullable = false)
     private OffsetDateTime availableAt = OffsetDateTime.now();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "output_data", columnDefinition = "jsonb")
+    private JsonNode outputData;
+
+    @Column(name = "error_message")
+    private String errorMessage;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "started_at")
+    private OffsetDateTime startedAt;
+
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
 
     public Job() {
     }
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public Long getQueueId() {
@@ -118,25 +144,10 @@ public class Job {
     public void setRetryDelaySeconds(Integer retryDelaySeconds) {
         this.retryDelaySeconds = retryDelaySeconds;
     }
-    @Column(name = "estimated_duration_ms")
-    private Long estimatedDurationMs;
 
-    @Column(name = "scheduled_at")
-    private OffsetDateTime scheduledAt;
-
-    @Column(name = "deadline_at")
-    private OffsetDateTime deadlineAt;
-
-    public OffsetDateTime getAvailableAt() {
-        return availableAt;
+    public Long getEstimatedDurationMs() {
+        return estimatedDurationMs;
     }
-
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
-        public Long getEstimatedDurationMs() {
-    return estimatedDurationMs;
-}
 
     public void setEstimatedDurationMs(Long estimatedDurationMs) {
         this.estimatedDurationMs = estimatedDurationMs;
@@ -156,5 +167,53 @@ public class Job {
 
     public void setDeadlineAt(OffsetDateTime deadlineAt) {
         this.deadlineAt = deadlineAt;
+    }
+
+    public OffsetDateTime getAvailableAt() {
+        return availableAt;
+    }
+
+    public void setAvailableAt(OffsetDateTime availableAt) {
+        this.availableAt = availableAt;
+    }
+
+    public JsonNode getOutputData() {
+        return outputData;
+    }
+
+    public void setOutputData(JsonNode outputData) {
+        this.outputData = outputData;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public OffsetDateTime getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(OffsetDateTime startedAt) {
+        this.startedAt = startedAt;
+    }
+
+    public OffsetDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(OffsetDateTime completedAt) {
+        this.completedAt = completedAt;
     }
 }

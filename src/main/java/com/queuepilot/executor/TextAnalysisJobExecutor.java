@@ -53,7 +53,7 @@ public class TextAnalysisJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
+    public void validateInput(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
         String text = JobInputs.requireString(data, "text");
 
@@ -62,6 +62,13 @@ public class TextAnalysisJobExecutor implements JobExecutor {
                     "Field 'text' must be at most " + MAX_TEXT_LENGTH
                             + " characters (received " + text.length() + ")");
         }
+    }
+
+    @Override
+    public JobExecutionResult execute(JsonNode input) {
+        validateInput(input);
+        Map<String, Object> data = JobInputs.requireObject(input);
+        String text = JobInputs.requireString(data, "text");
 
         Map<String, Integer> frequencies = new HashMap<>();
         int wordCount = countWords(text, frequencies);

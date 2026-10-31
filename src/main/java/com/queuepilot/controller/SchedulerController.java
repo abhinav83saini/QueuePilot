@@ -41,9 +41,13 @@ public class SchedulerController {
     public ResponseEntity<?> setPolicy(@RequestParam String policy) {
         String selected = policy.trim().toUpperCase();
 
-        if (!Set.of("FCFS", "PRIORITY", "SJF").contains(selected)) {
+        if ("PRIORITY".equals(selected)) {
+            selected = "PRIORITY_AGING";
+        }
+
+        if (!Set.of("FCFS", "PRIORITY_AGING", "SJF").contains(selected)) {
             return ResponseEntity.badRequest()
-                    .body("Policy must be FCFS, PRIORITY, or SJF");
+                    .body("Policy must be FCFS, PRIORITY_AGING (or PRIORITY), or SJF");
         }
 
         int updated = jdbc.update("""

@@ -322,7 +322,7 @@
                     <label for="policy">Scheduling policy</label>
                     <select id="policy">
                         <option value="FCFS">FCFS — First come, first served</option>
-                        <option value="PRIORITY">Priority</option>
+                        <option value="PRIORITY_AGING">Priority with Aging</option>
                         <option value="SJF">Shortest job first</option>
                     </select>
                 </div>
@@ -503,7 +503,7 @@
             const status = String(job.status || "");
             let buttons = `<button class="secondary" data-action="details" data-id="${safe(job.id)}">Details</button>`;
 
-            if (status === "QUEUED" || status === "SCHEDULED") {
+            if (status === "QUEUED" || status === "SCHEDULED" || status === "BLOCKED") {
                 buttons += `<button class="danger" data-action="cancel" data-id="${safe(job.id)}">Cancel</button>`;
             }
 
@@ -526,7 +526,8 @@
 
     async function loadPolicy() {
         const result = await api("/api/scheduler/policy");
-        $("policy").value = result.activePolicy || "FCFS";
+        const policy = result.activePolicy || "FCFS";
+        $("policy").value = policy === "PRIORITY" ? "PRIORITY_AGING" : policy;
     }
 
     async function loadWorkers() {
@@ -692,7 +693,12 @@
                 <p>
                     Status: <span class="badge ${statusClass(job.status)}">${safe(job.status)}</span>
                     &nbsp; Progress: ${safe(job.progress)}%
+                    &nbsp; Queue: #${safe(job.queueId)}
+                    &nbsp; Priority: ${safe(job.priority)}
                 </p>
+                ${job.startedAt ? `<p class="muted">Started: ${date(job.startedAt)} &nbsp;|&nbsp; Completed: ${date(job.completedAt)}</p>` : ''}
+                ${job.errorMessage ? `<div style="color:var(--red);margin-bottom:12px;background:#2d151c;border:1px solid #7f3044;padding:8px 12px;border-radius:6px;"><strong>Error:</strong> ${safe(job.errorMessage)}</div>` : ''}
+                ${job.outputData ? `<h3>Job Output</h3><pre>${safe(JSON.stringify(job.outputData, null, 2))}</pre>` : ''}
                 <div class="two">
                     <div>
                         <h3>Execution attempts</h3>

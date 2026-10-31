@@ -1,4 +1,3 @@
-
 package com.queuepilot.controller;
 
 import com.queuepilot.entity.Job;
@@ -8,8 +7,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/jobs")
@@ -56,16 +57,36 @@ public class JobOperationsController {
                     .body("A prerequisite has failed or been cancelled.");
         }
 
+        Boolean hasIncompletePrereq = jdbc.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM job_dependencies d
+                    JOIN jobs prerequisite
+                      ON prerequisite.job_id = d.depends_on_job_id
+                    WHERE d.job_id = ?
+                      AND prerequisite.status <> 'COMPLETED'
+                )
+                """, Boolean.class, jobId);
+
+        String nextStatus;
+        if (Boolean.TRUE.equals(hasIncompletePrereq)) {
+            nextStatus = "BLOCKED";
+        } else if (job.getScheduledAt() != null && job.getScheduledAt().isAfter(OffsetDateTime.now())) {
+            nextStatus = "SCHEDULED";
+        } else {
+            nextStatus = "QUEUED";
+        }
+
         int updated = jdbc.update("""
                 UPDATE jobs
-                SET status = 'QUEUED',
+                SET status = ?,
                     progress = 0,
                     available_at = NOW(),
                     started_at = NULL,
                     completed_at = NULL,
                     error_message = NULL
                 WHERE job_id = ? AND status = 'FAILED'
-                """, jobId);
+                """, nextStatus, jobId);
 
         if (updated == 0) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -73,12 +94,12 @@ public class JobOperationsController {
         }
 
         addEvent(jobId, "JOB_MANUAL_RETRY",
-                "{\"source\":\"API\"}");
+                "{\"source\":\"API\",\"targetStatus\":\"" + nextStatus + "\"}");
 
         return ResponseEntity.ok(Map.of(
                 "jobId", jobId,
-                "status", "QUEUED",
-                "message", "Job queued for manual retry"
+                "status", nextStatus,
+                "message", "Job queued for manual retry with status " + nextStatus
         ));
     }
 
@@ -93,18 +114,24 @@ public class JobOperationsController {
         }
 
         var jobOptional = jobRepository.findById(jobId);
+        var prereqOptional = jobRepository.findById(dependsOnJobId);
 
-        if (jobOptional.isEmpty()
-                || !jobRepository.existsById(dependsOnJobId)) {
+        if (jobOptional.isEmpty() || prereqOptional.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
 
         String jobStatus = jobOptional.get().getStatus();
+        Set<String> validStates = Set.of("QUEUED", "SCHEDULED", "BLOCKED");
 
-        if (!"QUEUED".equalsIgnoreCase(jobStatus)
-                && !"SCHEDULED".equalsIgnoreCase(jobStatus)) {
+        if (!validStates.contains(jobStatus.toUpperCase())) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Dependencies can only be added to queued or scheduled jobs.");
+                    .body("Dependencies can only be added to unstarted jobs (QUEUED, SCHEDULED, BLOCKED).");
+        }
+
+        String prereqStatus = prereqOptional.get().getStatus();
+        if ("FAILED".equalsIgnoreCase(prereqStatus) || "CANCELLED".equalsIgnoreCase(prereqStatus)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Cannot depend on job " + dependsOnJobId + " because its status is " + prereqStatus);
         }
 
         Boolean wouldCycle = jdbc.queryForObject("""
@@ -142,6 +169,18 @@ public class JobOperationsController {
         if (inserted > 0) {
             addEvent(jobId, "JOB_DEPENDENCY_ADDED",
                     "{\"dependsOnJobId\":" + dependsOnJobId + "}");
+
+            // If the prerequisite is not completed, transition job to BLOCKED
+            if (!"COMPLETED".equalsIgnoreCase(prereqStatus) && !"BLOCKED".equalsIgnoreCase(jobStatus)) {
+                jdbc.update("""
+                        UPDATE jobs
+                        SET status = 'BLOCKED'
+                        WHERE job_id = ? AND status IN ('QUEUED', 'SCHEDULED')
+                        """, jobId);
+
+                addEvent(jobId, "JOB_BLOCKED",
+                        "{\"reason\":\"UNMET_PREREQUISITE\",\"prerequisiteJobId\":" + dependsOnJobId + "}");
+            }
         }
 
         return ResponseEntity.ok(Map.of(

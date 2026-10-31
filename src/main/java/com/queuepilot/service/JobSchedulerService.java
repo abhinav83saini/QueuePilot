@@ -110,7 +110,7 @@ public class JobSchedulerService {
                   )
                 ORDER BY
                     CASE
-                        WHEN p.active_policy = 'PRIORITY'
+                        WHEN p.active_policy IN ('PRIORITY', 'PRIORITY_AGING')
                         THEN j.priority
                     END DESC NULLS LAST,
                     CASE
@@ -158,6 +158,8 @@ public class JobSchedulerService {
             recoverExpiredLeases();
             recoverOrphanedRunningJobs();
             failJobsWithFailedDependencies();
+            activateScheduledJobs();
+            unblockReadyJobs();
 
             List<ClaimedJob> jobs = jdbc.query(
                     CLAIM_SQL,
@@ -654,6 +656,62 @@ public class JobSchedulerService {
                     jobId,
                     "JOB_FAILED",
                     "{\"reason\":\"PREREQUISITE_FAILED\"}"
+            );
+        }
+    }
+
+    private void activateScheduledJobs() {
+        List<Long> activatedJobs = jdbc.query("""
+                UPDATE jobs j
+                SET status = 'QUEUED'
+                WHERE j.status = 'SCHEDULED'
+                  AND (j.scheduled_at IS NULL OR j.scheduled_at <= NOW())
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM job_dependencies d
+                      JOIN jobs prerequisite
+                        ON prerequisite.job_id = d.depends_on_job_id
+                      WHERE d.job_id = j.job_id
+                        AND prerequisite.status <> 'COMPLETED'
+                  )
+                RETURNING j.job_id
+                """,
+                (rs, row) -> rs.getLong("job_id"));
+
+        for (Long jobId : activatedJobs) {
+            addEvent(
+                    jobId,
+                    "JOB_ACTIVATED",
+                    "{\"reason\":\"SCHEDULED_TIME_REACHED\"}"
+            );
+        }
+    }
+
+    private void unblockReadyJobs() {
+        List<Long> unblockedJobs = jdbc.query("""
+                UPDATE jobs j
+                SET status = CASE
+                        WHEN j.scheduled_at IS NOT NULL AND j.scheduled_at > NOW() THEN 'SCHEDULED'
+                        ELSE 'QUEUED'
+                    END
+                WHERE j.status = 'BLOCKED'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM job_dependencies d
+                      JOIN jobs prerequisite
+                        ON prerequisite.job_id = d.depends_on_job_id
+                      WHERE d.job_id = j.job_id
+                        AND prerequisite.status <> 'COMPLETED'
+                  )
+                RETURNING j.job_id
+                """,
+                (rs, row) -> rs.getLong("job_id"));
+
+        for (Long jobId : unblockedJobs) {
+            addEvent(
+                    jobId,
+                    "JOB_UNBLOCKED",
+                    "{\"reason\":\"ALL_PREREQUISITES_COMPLETED\"}"
             );
         }
     }

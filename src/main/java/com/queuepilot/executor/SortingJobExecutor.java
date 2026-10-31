@@ -40,7 +40,7 @@ public class SortingJobExecutor implements JobExecutor {
     }
 
     @Override
-    public JobExecutionResult execute(JsonNode input) {
+    public void validateInput(JsonNode input) {
         Map<String, Object> data = JobInputs.requireObject(input);
 
         Object raw = data.get("values");
@@ -60,6 +60,19 @@ public class SortingJobExecutor implements JobExecutor {
                     "Field 'values' must contain at most " + MAX_VALUES
                             + " numbers (received " + list.size() + ")");
         }
+
+        isDescending(data);
+
+        for (int i = 0; i < list.size(); i++) {
+            JobInputs.toNumber(list.get(i), "values[" + i + "]");
+        }
+    }
+
+    @Override
+    public JobExecutionResult execute(JsonNode input) {
+        validateInput(input);
+        Map<String, Object> data = JobInputs.requireObject(input);
+        List<?> list = (List<?>) data.get("values");
 
         boolean descending = isDescending(data);
 

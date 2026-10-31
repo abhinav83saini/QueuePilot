@@ -24,7 +24,13 @@ public class SimulatedEmailJobExecutor implements JobExecutor {
     }
 
     @Override
+    public void validateInput(JsonNode input) {
+        JobInputs.requireObject(input);
+    }
+
+    @Override
     public JobExecutionResult execute(JsonNode input) {
+        validateInput(input);
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("simulated", true);
         output.put("message", "Demo email completed; no email was sent.");

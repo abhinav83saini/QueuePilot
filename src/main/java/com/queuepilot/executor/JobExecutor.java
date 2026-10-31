@@ -27,6 +27,17 @@ public interface JobExecutor {
     Set<String> supportedJobTypes();
 
     /**
+     * Validates the input data against this executor's expected schema and constraints.
+     *
+     * @param input the job's {@code input_data}
+     * @throws InvalidJobInputException if the input is malformed, missing required fields,
+     *         or exceeds bounds
+     */
+    default void validateInput(JsonNode input) {
+        JobInputs.requireObject(input);
+    }
+
+    /**
      * Runs the task.
      *
      * @param input the job's {@code input_data} (never trusted)
