@@ -1,4 +1,3 @@
-
 package com.queuepilot.service;
 
 import jakarta.annotation.PostConstruct;
@@ -11,6 +10,7 @@ import com.queuepilot.executor.JsonSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,10 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class JobSchedulerService {
@@ -29,53 +32,106 @@ public class JobSchedulerService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transactions;
     private final JobExecutorRegistry executors;
+    private final int poolSize;
+    private final int defaultCapacity;
+    private final double priorityAgingIntervalSeconds;
 
-    private volatile Long workerId;
+    private final List<Long> registeredWorkerIds = new CopyOnWriteArrayList<>();
+    private final ExecutorService workerThreadPool;
+
+    public JobSchedulerService(
+            JdbcTemplate jdbc,
+            PlatformTransactionManager transactionManager,
+            JobExecutorRegistry executors,
+            @Value("${queuepilot.workers.pool-size:4}") int poolSize,
+            @Value("${queuepilot.workers.default-capacity:1}") int defaultCapacity,
+            @Value("${queuepilot.scheduler.priority-aging-interval-seconds:10.0}") double priorityAgingIntervalSeconds) {
+
+        this.jdbc = jdbc;
+        this.transactions = new TransactionTemplate(transactionManager);
+        this.executors = executors;
+        this.poolSize = Math.max(1, poolSize);
+        this.defaultCapacity = Math.max(1, defaultCapacity);
+        this.priorityAgingIntervalSeconds = priorityAgingIntervalSeconds > 0 ? priorityAgingIntervalSeconds : 10.0;
+
+        AtomicInteger workerThreadNumber = new AtomicInteger(1);
+        this.workerThreadPool = Executors.newFixedThreadPool(this.poolSize, r -> {
+            Thread t = new Thread(r, "queuepilot-worker-thread-" + workerThreadNumber.getAndIncrement());
+            t.setDaemon(true);
+            return t;
+        });
+    }
 
     public JobSchedulerService(
             JdbcTemplate jdbc,
             PlatformTransactionManager transactionManager,
             JobExecutorRegistry executors) {
-
-        this.jdbc = jdbc;
-        this.transactions = new TransactionTemplate(transactionManager);
-        this.executors = executors;
+        this(jdbc, transactionManager, executors, 4, 1, 10.0);
     }
 
     @PostConstruct
-    public void registerWorker() {
-        String name = "queuepilot-" +
-                UUID.randomUUID().toString().substring(0, 8);
+    public void registerWorkers() {
+        Set<String> supportedTypes = executors.supportedJobTypes();
 
-        workerId = jdbc.queryForObject("""
-                INSERT INTO workers
-                    (name, health_status, capacity, last_heartbeat)
-                VALUES (?, 'HEALTHY', 1, NOW())
-                RETURNING worker_id
-                """, Long.class, name);
+        for (int i = 1; i <= poolSize; i++) {
+            String name = "worker-" + i + "-" + UUID.randomUUID().toString().substring(0, 6);
 
-        log.info("Registered QueuePilot worker with ID {}", workerId);
+            Long id = jdbc.queryForObject("""
+                    INSERT INTO workers
+                        (name, health_status, capacity, last_heartbeat)
+                    VALUES (?, 'HEALTHY', ?, NOW())
+                    RETURNING worker_id
+                    """, Long.class, name, defaultCapacity);
+
+            if (id != null) {
+                registeredWorkerIds.add(id);
+
+                for (String cap : supportedTypes) {
+                    jdbc.update("""
+                            INSERT INTO worker_capabilities (worker_id, capability)
+                            VALUES (?, ?)
+                            ON CONFLICT DO NOTHING
+                            """, id, cap);
+                }
+                log.info("Registered worker {} ({}) with capacity {} and {} capabilities",
+                        id, name, defaultCapacity, supportedTypes.size());
+            }
+        }
     }
 
     @PreDestroy
-    public void unregisterWorker() {
-        if (workerId == null) {
-            return;
-        }
-
+    public void unregisterWorkers() {
+        workerThreadPool.shutdown();
         try {
-            jdbc.update("""
-                    UPDATE workers
-                    SET health_status = 'OFFLINE',
-                        last_heartbeat = NOW()
-                    WHERE worker_id = ?
-                    """, workerId);
-
-            log.info("Worker {} marked offline", workerId);
-        } catch (Exception ex) {
-            log.warn("Could not mark worker offline: {}",
-                    ex.getMessage());
+            if (!workerThreadPool.awaitTermination(5, TimeUnit.SECONDS)) {
+                workerThreadPool.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            workerThreadPool.shutdownNow();
+            Thread.currentThread().interrupt();
         }
+
+        for (Long id : registeredWorkerIds) {
+            try {
+                jdbc.update("""
+                        UPDATE workers
+                        SET health_status = 'OFFLINE',
+                            last_heartbeat = NOW()
+                        WHERE worker_id = ?
+                        """, id);
+                log.info("Worker {} marked offline", id);
+            } catch (Exception ex) {
+                log.warn("Could not mark worker {} offline: {}", id, ex.getMessage());
+            }
+        }
+    }
+
+    public List<Long> getRegisteredWorkerIds() {
+        return List.copyOf(registeredWorkerIds);
+    }
+
+    public double getPriorityAgingIntervalSeconds() {
+        return priorityAgingIntervalSeconds;
     }
 
     private static final String CLAIM_SQL = """
@@ -108,9 +164,17 @@ public class JobSchedulerService {
                       WHERE d.job_id = j.job_id
                         AND prerequisite.status <> 'COMPLETED'
                   )
+                  AND EXISTS (
+                      SELECT 1
+                      FROM worker_capabilities wc
+                      WHERE wc.worker_id = ?
+                        AND UPPER(wc.capability) = UPPER(j.job_type)
+                  )
                 ORDER BY
                     CASE
-                        WHEN p.active_policy IN ('PRIORITY', 'PRIORITY_AGING')
+                        WHEN p.active_policy = 'PRIORITY_AGING'
+                        THEN (j.priority + (EXTRACT(EPOCH FROM (NOW() - j.available_at)) / ?))
+                        WHEN p.active_policy = 'PRIORITY'
                         THEN j.priority
                     END DESC NULLS LAST,
                     CASE
@@ -129,7 +193,7 @@ public class JobSchedulerService {
                 started_at = NOW(),
                 completed_at = NULL,
                 error_message = NULL,
-                progress = 0
+                progress = 10
             FROM candidate c
             WHERE j.job_id = c.job_id
             RETURNING
@@ -143,17 +207,29 @@ public class JobSchedulerService {
     @Scheduled(fixedDelayString =
             "${queuepilot.scheduler.poll-delay-ms:1000}")
     public void pollQueue() {
-        if (workerId == null) {
+        if (registeredWorkerIds.isEmpty()) {
             return;
         }
 
         try {
+            // Periodic heartbeats for all registered healthy workers
+            for (Long wid : registeredWorkerIds) {
+                jdbc.update("""
+                        UPDATE workers
+                        SET last_heartbeat = NOW()
+                        WHERE worker_id = ? AND health_status = 'HEALTHY'
+                        """, wid);
+            }
+
+            // Extend leases for running attempts on healthy workers
             jdbc.update("""
-                    UPDATE workers
-                    SET health_status = 'HEALTHY',
-                        last_heartbeat = NOW()
-                    WHERE worker_id = ?
-                    """, workerId);
+                    UPDATE execution_attempts ea
+                    SET lease_expires_at = NOW() + INTERVAL '30 seconds'
+                    FROM workers w
+                    WHERE ea.worker_id = w.worker_id
+                      AND ea.status = 'RUNNING'
+                      AND w.health_status = 'HEALTHY'
+                    """);
 
             recoverExpiredLeases();
             recoverOrphanedRunningJobs();
@@ -161,19 +237,31 @@ public class JobSchedulerService {
             activateScheduledJobs();
             unblockReadyJobs();
 
-            List<ClaimedJob> jobs = jdbc.query(
-                    CLAIM_SQL,
-                    (rs, row) -> new ClaimedJob(
-                            rs.getLong("job_id"),
-                            rs.getString("job_type"),
-                            rs.getString("input_data"),
-                            rs.getInt("max_retries"),
-                            rs.getInt("retry_delay_seconds")
-                    )
-            );
+            List<AvailableWorker> availableWorkers = getAvailableWorkers();
 
-            if (!jobs.isEmpty()) {
-                processJob(jobs.get(0));
+            for (AvailableWorker worker : availableWorkers) {
+                for (int slot = 0; slot < worker.availableSlots(); slot++) {
+                    List<ClaimedJob> claimed = jdbc.query(
+                            CLAIM_SQL,
+                            (rs, row) -> new ClaimedJob(
+                                    rs.getLong("job_id"),
+                                    rs.getString("job_type"),
+                                    rs.getString("input_data"),
+                                    rs.getInt("max_retries"),
+                                    rs.getInt("retry_delay_seconds")
+                            ),
+                            worker.workerId(),
+                            priorityAgingIntervalSeconds
+                    );
+
+                    if (claimed.isEmpty()) {
+                        break;
+                    }
+
+                    ClaimedJob job = claimed.get(0);
+                    Long assignedWorkerId = worker.workerId();
+                    workerThreadPool.submit(() -> processJob(job, assignedWorkerId));
+                }
             }
 
         } catch (Exception ex) {
@@ -181,7 +269,40 @@ public class JobSchedulerService {
         }
     }
 
-    private void processJob(ClaimedJob job) {
+    private List<AvailableWorker> getAvailableWorkers() {
+        return jdbc.query("""
+                SELECT w.worker_id,
+                       (w.capacity - COALESCE(active.cnt, 0)) AS available_slots
+                FROM workers w
+                LEFT JOIN (
+                    SELECT worker_id, COUNT(*) AS cnt
+                    FROM execution_attempts
+                    WHERE status = 'RUNNING'
+                    GROUP BY worker_id
+                ) active ON active.worker_id = w.worker_id
+                WHERE w.health_status = 'HEALTHY'
+                  AND (w.capacity - COALESCE(active.cnt, 0)) > 0
+                ORDER BY w.worker_id ASC
+                """,
+                (rs, row) -> new AvailableWorker(
+                        rs.getLong("worker_id"),
+                        rs.getInt("available_slots")
+                ));
+    }
+
+    private void updateJobProgress(Long jobId, int progress) {
+        try {
+            jdbc.update("""
+                    UPDATE jobs
+                    SET progress = ?
+                    WHERE job_id = ? AND status = 'RUNNING'
+                    """, progress, jobId);
+        } catch (Exception ex) {
+            log.warn("Could not update progress for job {}: {}", jobId, ex.getMessage());
+        }
+    }
+
+    private void processJob(ClaimedJob job, Long assignedWorkerId) {
         Long attemptId = null;
         int attemptNumber = 0;
         int attemptInCycle = 0;
@@ -204,7 +325,7 @@ public class JobSchedulerService {
                         """,
                         Long.class,
                         job.id(),
-                        workerId,
+                        assignedWorkerId,
                         globalNumber
                 );
 
@@ -213,7 +334,7 @@ public class JobSchedulerService {
                         "JOB_STARTED",
                         "{\"attemptNumber\":" + globalNumber +
                         ",\"attemptInCycle\":" + cycleNumber +
-                        ",\"workerId\":" + workerId + "}"
+                        ",\"workerId\":" + assignedWorkerId + "}"
                 );
 
                 return id;
@@ -224,14 +345,16 @@ public class JobSchedulerService {
                         "Could not create an execution attempt");
             }
 
-            // The task itself lives in com.queuepilot.executor; the registry
-            // picks the executor for this job type. EMAIL stays simulated.
-            // Failures (unsupported type, invalid input) are thrown as
-            // exceptions and handled by the existing failure path below.
+            // Report progress during execution (SRS F9, U4)
+            updateJobProgress(job.id(), 35);
+
+            // Execute built-in task on the worker thread
             JobExecutionResult result = executors.execute(
                     job.jobType(),
                     JsonSupport.parse(job.inputData()));
             String output = result.toJson();
+
+            updateJobProgress(job.id(), 85);
 
             final Long savedAttemptId = attemptId;
             final String savedOutput = output;
@@ -275,18 +398,17 @@ public class JobSchedulerService {
                 );
             });
 
-            log.info("Job {} completed successfully", job.id());
+            log.info("Job {} completed successfully by worker {}", job.id(), assignedWorkerId);
 
         } catch (Exception ex) {
             String error = ex.getMessage() == null
                     ? "Job execution failed"
                     : ex.getMessage();
 
-            log.error("Job {} failed during processing", job.id(), ex);
+            log.error("Job {} failed during processing by worker {}", job.id(), assignedWorkerId, ex);
 
             if (attemptId == null) {
-                // Failure occurred before an execution attempt was
-                // successfully created. Do not leave the job RUNNING.
+                // Failure occurred before an execution attempt was persisted.
                 try {
                     transactions.executeWithoutResult(transactionStatus -> {
                         jdbc.update("""
@@ -440,6 +562,7 @@ public class JobSchedulerService {
         List<ExpiredAttempt> expired = jdbc.query("""
                 SELECT
                     ea.attempt_id,
+                    ea.worker_id,
                     j.job_id,
                     j.max_retries,
                     j.retry_delay_seconds
@@ -452,13 +575,29 @@ public class JobSchedulerService {
                 """,
                 (rs, row) -> new ExpiredAttempt(
                         rs.getLong("attempt_id"),
+                        rs.getObject("worker_id", Long.class),
                         rs.getLong("job_id"),
                         rs.getInt("max_retries"),
                         rs.getInt("retry_delay_seconds")
                 ));
 
+        if (expired == null || expired.isEmpty()) {
+            return;
+        }
+
         for (ExpiredAttempt attempt : expired) {
             try {
+                // SRS F11: When lease expires, mark worker unavailable (UNHEALTHY)
+                if (attempt.workerId() != null) {
+                    jdbc.update("""
+                            UPDATE workers
+                            SET health_status = 'UNHEALTHY'
+                            WHERE worker_id = ?
+                            """, attempt.workerId());
+                    log.warn("Worker {} marked UNHEALTHY due to expired lease on attempt {}",
+                            attempt.workerId(), attempt.attemptId());
+                }
+
                 transactions.executeWithoutResult(transactionStatus -> {
                     int changed = jdbc.update("""
                             UPDATE execution_attempts
@@ -497,7 +636,7 @@ public class JobSchedulerService {
                             addEvent(
                                     attempt.jobId(),
                                     "JOB_RETRY_SCHEDULED",
-                                    "{\"reason\":\"WORKER_LEASE_EXPIRED\"}"
+                                    "{\"reason\":\"WORKER_LEASE_EXPIRED\",\"workerId\":" + attempt.workerId() + "}"
                             );
                         }
 
@@ -515,7 +654,7 @@ public class JobSchedulerService {
                             addEvent(
                                     attempt.jobId(),
                                     "JOB_FAILED",
-                                    "{\"reason\":\"WORKER_LEASE_EXPIRED\"}"
+                                    "{\"reason\":\"WORKER_LEASE_EXPIRED\",\"workerId\":" + attempt.workerId() + "}"
                             );
                         }
                     }
@@ -531,8 +670,6 @@ public class JobSchedulerService {
 
     /*
      * Repairs old RUNNING jobs that have no active RUNNING attempt.
-     * This handles jobs stranded by older versions of the service
-     * or by a failure before an execution attempt was persisted.
      */
     private void recoverOrphanedRunningJobs() {
         List<OrphanedJob> orphaned = jdbc.query("""
@@ -556,6 +693,10 @@ public class JobSchedulerService {
                         rs.getInt("max_retries"),
                         rs.getInt("retry_delay_seconds")
                 ));
+
+        if (orphaned == null || orphaned.isEmpty()) {
+            return;
+        }
 
         for (OrphanedJob job : orphaned) {
             try {
@@ -651,12 +792,14 @@ public class JobSchedulerService {
                 """,
                 (rs, row) -> rs.getLong("job_id"));
 
-        for (Long jobId : failedJobs) {
-            addEvent(
-                    jobId,
-                    "JOB_FAILED",
-                    "{\"reason\":\"PREREQUISITE_FAILED\"}"
-            );
+        if (failedJobs != null) {
+            for (Long jobId : failedJobs) {
+                addEvent(
+                        jobId,
+                        "JOB_FAILED",
+                        "{\"reason\":\"PREREQUISITE_FAILED\"}"
+                );
+            }
         }
     }
 
@@ -678,12 +821,14 @@ public class JobSchedulerService {
                 """,
                 (rs, row) -> rs.getLong("job_id"));
 
-        for (Long jobId : activatedJobs) {
-            addEvent(
-                    jobId,
-                    "JOB_ACTIVATED",
-                    "{\"reason\":\"SCHEDULED_TIME_REACHED\"}"
-            );
+        if (activatedJobs != null) {
+            for (Long jobId : activatedJobs) {
+                addEvent(
+                        jobId,
+                        "JOB_ACTIVATED",
+                        "{\"reason\":\"SCHEDULED_TIME_REACHED\"}"
+                );
+            }
         }
     }
 
@@ -707,12 +852,14 @@ public class JobSchedulerService {
                 """,
                 (rs, row) -> rs.getLong("job_id"));
 
-        for (Long jobId : unblockedJobs) {
-            addEvent(
-                    jobId,
-                    "JOB_UNBLOCKED",
-                    "{\"reason\":\"ALL_PREREQUISITES_COMPLETED\"}"
-            );
+        if (unblockedJobs != null) {
+            for (Long jobId : unblockedJobs) {
+                addEvent(
+                        jobId,
+                        "JOB_UNBLOCKED",
+                        "{\"reason\":\"ALL_PREREQUISITES_COMPLETED\"}"
+                );
+            }
         }
     }
 
@@ -728,7 +875,7 @@ public class JobSchedulerService {
                 """, jobId, eventType, details);
     }
 
-    private record ClaimedJob(
+    public record ClaimedJob(
             Long id,
             String jobType,
             String inputData,
@@ -736,16 +883,22 @@ public class JobSchedulerService {
             int retryDelaySeconds) {
     }
 
-    private record ExpiredAttempt(
+    public record ExpiredAttempt(
             Long attemptId,
+            Long workerId,
             Long jobId,
             int maxRetries,
             int retryDelaySeconds) {
     }
 
-    private record OrphanedJob(
+    public record OrphanedJob(
             Long id,
             int maxRetries,
             int retryDelaySeconds) {
+    }
+
+    public record AvailableWorker(
+            Long workerId,
+            int availableSlots) {
     }
 }

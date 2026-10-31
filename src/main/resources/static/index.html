@@ -341,11 +341,14 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>Health</th>
+                        <th>Capacity</th>
+                        <th>Active Jobs</th>
+                        <th>Capabilities</th>
                         <th>Heartbeat</th>
                     </tr>
                     </thead>
                     <tbody id="workers">
-                    <tr><td colspan="4" class="empty">Loading workers...</td></tr>
+                    <tr><td colspan="7" class="empty">Loading workers...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -535,7 +538,7 @@
         const body = $("workers");
 
         if (!Array.isArray(workers) || workers.length === 0) {
-            body.innerHTML = '<tr><td colspan="4" class="empty">No workers registered.</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="empty">No workers registered.</td></tr>';
             return;
         }
 
@@ -544,6 +547,9 @@
                 <td>${safe(worker.worker_id)}</td>
                 <td>${safe(worker.name)}</td>
                 <td><span class="badge ${worker.health_status === "HEALTHY" ? "ok" : "bad"}">${safe(worker.health_status)}</span></td>
+                <td>${safe(worker.capacity)}</td>
+                <td>${safe(worker.active_jobs ?? 0)}</td>
+                <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;" title="${safe(worker.capabilities)}">${safe(worker.capabilities || "—")}</td>
                 <td>${safe(date(worker.last_heartbeat))}</td>
             </tr>
         `).join("");
